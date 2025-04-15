@@ -9,185 +9,225 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Подключение к MongoDB с проверкой
+// Подключение к MongoDB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log("✅ Успешное подключение к MongoDB"))
-.catch(err => console.error("❌ Ошибка подключения к MongoDB:", err));
+.then(() => console.log("✅ MongoDB connected"))
+.catch(err => console.error("❌ MongoDB connection error:", err));
 
-// Создаём схему пользователя
+// Схемы
 const UserSchema = new mongoose.Schema({
-  email: { type: String, unique: true }, // Указываем, что email должен быть уникальным
-  password: String,
+  email: { 
+    type: String, 
+    unique: true,
+    required: true,
+    lowercase: true
+  },
+  password: {
+    type: String,
+    required: true
+  }
 });
 
-// Создаем индекс для email в нижнем регистре
-UserSchema.index({ email: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
+UserSchema.index({ email: 1 }, { 
+  unique: true, 
+  collation: { locale: 'en', strength: 2 } 
+});
 
-const User = mongoose.model("User", UserSchema);
-
-// Схема задачи
 const TaskSchema = new mongoose.Schema({
-  title: String,
+  title: {
+    type: String,
+    required: true
+  },
   date: String,
   time: String,
-  status: { type: String, enum: ["выполнено", "в прогрессе"], default: "в прогрессе" },
+  status: {
+    type: String,
+    enum: ["выполнено", "в прогрессе"],
+    default: "в прогрессе"
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
 });
+
+const User = mongoose.model("User", UserSchema);
 const Task = mongoose.model("Task", TaskSchema);
 
-app.post("/register", async (req, res) => {
-  console.log("Запрос на регистрацию:", req.body);
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email и пароль обязательны" });
-  }
-
+// Middleware для проверки токена
+const authenticate = async (req, res, next) => {
   try {
-    // Приводим email к нижнему регистру
-    const normalizedEmail = email.toLowerCase();
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: "Требуется авторизация" });
 
-    // Проверяем, существует ли пользователь с таким email
-    const existingUser = await User.findOne({ email: normalizedEmail });
-    if (existingUser) {
-      return res.status(400).json({ error: "Пользователь с таким email уже существует" });
-    }
-
-    // Хэшируем пароль
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Создаем нового пользователя
-    const newUser = new User({ email: normalizedEmail, password: hashedPassword });
-    await newUser.save();
-
-    console.log("Пользователь создан:", normalizedEmail);
-    res.json({ message: "User registered" });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
   } catch (error) {
-    console.error("Ошибка при регистрации:", error);
+    res.status(401).json({ error: "Неверный токен" });
+  }
+};
 
-    // Обработка ошибки уникальности email
-    if (error.code === 11000) {
-      return res.status(400).json({ error: "Пользователь с таким email уже существует" });
+// Регистрация
+app.post("/register", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email и пароль обязательны" });
     }
 
-    res.status(500).json({ error: "Registration failed" });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: "Пользователь уже существует" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ email, password: hashedPassword });
+    await user.save();
+
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.status(201).json({ token });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Ошибка регистрации" });
   }
 });
 
 // Логин
 app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ error: "Неверные учетные данные" });
+    }
 
-  // Приводим email к нижнему регистру
-  const normalizedEmail = email.toLowerCase();
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
-  const user = await User.findOne({ email: normalizedEmail });
-  if (!user) return res.status(400).json({ error: "User not found" });
-
-  const isValid = await bcrypt.compare(password, user.password);
-  if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
-
-  const token = jwt.sign({ email: user.email }, process.env.JWT_SECRET, { expiresIn: "1h" });
-  res.json({ token });
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: "Ошибка входа" });
+  }
 });
 
 // Проверка токена
-app.get("/auth", (req, res) => {
-  const token = req.headers["authorization"];
-  if (!token) return res.status(401).json({ error: "No token provided" });
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(401).json({ error: "Invalid token" });
-    res.json({ message: "Authorized", email: decoded.email });
-  });
+app.get("/auth", authenticate, (req, res) => {
+  res.json({ message: "Authorized", user: req.user });
 });
 
-// Создание задачи
-app.post("/tasks", async (req, res) => {
-  const { title, date, time } = req.body;
+// Задачи
+app.post("/tasks", authenticate, async (req, res) => {
   try {
-    const newTask = new Task({ title, date, time });
-    await newTask.save();
-    res.json({ message: "Task created", task: newTask });
+    const { title, date, time, status } = req.body;
+    const task = new Task({
+      title,
+      date,
+      time,
+      status: status || "в прогрессе",
+      userId: req.user.userId
+    });
+
+    await task.save();
+    res.status(201).json(task);
   } catch (error) {
-    res.status(500).json({ error: "Task creation failed" });
+    console.error("Create task error:", error);
+    res.status(500).json({ error: "Ошибка создания задачи" });
   }
 });
 
-// Получение всех задач
-app.get("/tasks", async (req, res) => {
-  const tasks = await Task.find();
-  res.json(tasks);
+app.get("/tasks", authenticate, async (req, res) => {
+  try {
+    const tasks = await Task.find({ userId: req.user.userId });
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ error: "Ошибка получения задач" });
+  }
 });
 
-app.get("/tasks/:id", async (req, res) => {
+app.get("/tasks/:id", authenticate, async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
-    if (!task) {
-      return res.status(404).json({ error: "Task not found" });
-    }
+    const task = await Task.findOne({ 
+      _id: req.params.id,
+      userId: req.user.userId 
+    });
+    
+    if (!task) return res.status(404).json({ error: "Задача не найдена" });
     res.json(task);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch task" });
+    res.status(500).json({ error: "Ошибка получения задачи" });
   }
 });
 
-// Удаление задачи
-app.delete("/tasks/:id", async (req, res) => {
+// Замените текущий PUT endpoint на этот:
+app.put("/tasks/:id", authenticate, async (req, res) => {
   try {
-    await Task.findByIdAndDelete(req.params.id);
-    res.json({ message: "Task deleted" });
-  } catch (error) {
-    res.status(500).json({ error: "Task deletion failed" });
-  }
-});
-
-// Обновление статуса задачи
-app.put("/tasks/:id", async (req, res) => {
-  const { status } = req.body;
-  if (!["выполнено", "в прогрессе"].includes(status)) {
-    return res.status(400).json({ error: "Invalid status" });
-  }
-  try {
-    const updatedTask = await Task.findByIdAndUpdate(req.params.id, { status }, { new: true });
-    res.json({ message: "Task updated", task: updatedTask });
-  } catch (error) {
-    res.status(500).json({ error: "Task update failed" });
-  }
-});
-
-// Обновление задачи (название, дата, время, статус)
-app.put("/tasks/:id/update", async (req, res) => {
-  const { id } = req.params;
-  const { title, date, time, status } = req.body;
-
-  // Проверяем, что статус допустимый
-  if (status && !["выполнено", "в прогрессе"].includes(status)) {
-    return res.status(400).json({ error: "Invalid status" });
-  }
-
-  try {
-    // Находим задачу по ID и обновляем её поля
-    const updatedTask = await Task.findByIdAndUpdate(
-      id,
-      { title, date, time, status },
-      { new: true } // Возвращаем обновленный документ
-    );
-
-    if (!updatedTask) {
-      return res.status(404).json({ error: "Task not found" });
+    const { title, date, time, status } = req.body;
+    
+    // Проверяем обязательные поля
+    if (!title && !status) {
+      return res.status(400).json({ error: "Необходимо указать название или статус задачи" });
     }
 
-    res.json({ message: "Task updated", task: updatedTask });
+    // Создаем объект для обновления только переданных полей
+    const updates = {};
+    
+    if (title) updates.title = title;
+    if (date !== undefined) updates.date = date || null;
+    if (time !== undefined) updates.time = time || null;
+    if (status) {
+      if (!["выполнено", "в прогрессе"].includes(status)) {
+        return res.status(400).json({ error: "Некорректный статус задачи" });
+      }
+      updates.status = status;
+    }
+
+    const task = await Task.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.userId },
+      updates,
+      { new: true }
+    );
+
+    if (!task) {
+      return res.status(404).json({ error: "Задача не найдена" });
+    }
+
+    res.json(task);
   } catch (error) {
-    console.error("Ошибка при обновлении задачи:", error);
-    res.status(500).json({ error: "Task update failed" });
+    console.error("Update task error:", error);
+    res.status(500).json({ error: "Ошибка обновления задачи" });
+  }
+});
+
+app.delete("/tasks/:id", authenticate, async (req, res) => {
+  try {
+    const task = await Task.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.userId
+    });
+    
+    if (!task) return res.status(404).json({ error: "Задача не найдена" });
+    res.json({ message: "Задача удалена" });
+  } catch (error) {
+    res.status(500).json({ error: "Ошибка удаления" });
   }
 });
 
 // Запуск сервера
-app.listen(process.env.PORT, () => {
-  console.log(`Server running on port ${process.env.PORT}`);
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });

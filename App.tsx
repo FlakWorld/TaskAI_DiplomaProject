@@ -5,8 +5,8 @@ import StartScreen from "./screens/StartScreen"; // Добавляем новы�
 import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import HomeScreen from "./screens/HomeScreen";
-import TaskScreen from "./screens/TaskScreen";
-import EditTaskScreen from "./screens/EditTaskScreen";
+import CreationTask from "./screens/CreationTask";
+import TaskDetail from "./screens/TaskDetail";
 import EditTaskForm from "./screens/EditTaskForm";
 import { RootStackParamList } from "./types";
 
@@ -20,8 +20,8 @@ export default function App() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Task" component={TaskScreen} />
-        <Stack.Screen name="EditTask" component={EditTaskScreen} />
+        <Stack.Screen name="Task" component={CreationTask} />
+        <Stack.Screen name="EditTask" component={TaskDetail} />
         <Stack.Screen name="EditTaskForm" component={EditTaskForm} />
       </Stack.Navigator>
     </NavigationContainer>

@@ -5,7 +5,7 @@ export type RootStackParamList = {
   Start: undefined; // Экран вступительной страницы
   Login: undefined;
   Register: undefined;
-  Home: { updatedTask?: { _id: string; status: string } };
+  Home: { refreshed?: boolean };
   Task: { id?: string }; // id теперь явно необязательный
   EditTask: { id?: string };
   EditTaskForm: { task: { _id?: string; title: string; date: string; time: string; status: string } };

@@ -1,4 +1,9 @@
 module.exports = {
-  root: true,
-  extends: '@react-native',
+  parser: '@babel/eslint-parser',
+  parserOptions: {
+    requireConfigFile: false, // <-- самое важное
+  },
+  extends: [
+    '@react-native-community', // если используешь стандартные правила RN
+  ],
 };

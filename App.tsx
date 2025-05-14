@@ -9,12 +9,13 @@ import CreationTask from "./screens/CreationTask";
 import TaskDetail from "./screens/TaskDetail";
 import EditTaskForm from "./screens/EditTaskForm";
 import { RootStackParamList } from "./types";
+import linking from './server/linking';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator initialRouteName="Start" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Start" component={StartScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />

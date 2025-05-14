@@ -98,3 +98,7 @@ export const updateTask = async (task, token) => {
     token
   );
 };
+
+export const microsoftAuth = async (name, email, microsoftId) => {
+  return makeRequest("/auth/microsoft", "POST", { name, email, microsoftId });
+};

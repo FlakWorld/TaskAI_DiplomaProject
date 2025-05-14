@@ -13,16 +13,111 @@ import {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { login } from "../server/api";
+import { login, microsoftAuth } from "../server/api";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { authorize, AuthConfiguration } from 'react-native-app-auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
+
+type AuthResult = {
+  accessToken: string;
+  accessTokenExpirationDate: string;
+  additionalParameters?: Record<string, unknown>;
+  idToken?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  scopes?: string[];
+};
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [microsoftLoading, setMicrosoftLoading] = useState(false);
   const [secureEntry, setSecureEntry] = useState(true);
+
+  const microsoftConfig: AuthConfiguration = {
+    issuer: 'https://login.microsoftonline.com/common/v2.0',
+    clientId: 'b33b9778-2f92-4e1d-9cba-92222a90408e',
+    redirectUrl: Platform.OS === 'ios' 
+      ? 'msauth.com.taskai://auth' 
+      : 'msauth://com.taskai',
+    scopes: ['openid', 'profile', 'email', 'offline_access', 'User.Read'],
+    additionalParameters: {
+      prompt: 'select_account' as const, // Явное приведение типа
+    },
+    serviceConfiguration: {
+      authorizationEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+      tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    },
+  };
+
+  const handleMicrosoftLogin = async () => {
+    try {
+      setMicrosoftLoading(true);
+      console.log('Initiating Microsoft login...');
+      
+      // Сбрасываем предыдущую сессию
+      await AsyncStorage.removeItem('microsoft_auth_state');
+
+      const result: AuthResult = await authorize(microsoftConfig);
+      console.log('Microsoft auth result:', result);
+
+      if (!result?.accessToken) {
+        throw new Error('Failed to get access token');
+      }
+
+      console.log('Fetching user info from Microsoft Graph...');
+      const userInfoResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: {
+          Authorization: `Bearer ${result.accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!userInfoResponse.ok) {
+        const errorText = await userInfoResponse.text();
+        throw new Error(`Microsoft Graph error: ${userInfoResponse.status} - ${errorText}`);
+      }
+
+      const userInfo = await userInfoResponse.json();
+      console.log('Microsoft user info:', userInfo);
+
+      const authResponse = await microsoftAuth(
+        userInfo.displayName || 'Microsoft User',
+        userInfo.mail || userInfo.userPrincipalName,
+        userInfo.id
+      );
+
+      if (!authResponse?.token) {
+        throw new Error('Authentication failed: no token received from server');
+      }
+
+      await AsyncStorage.setItem('token', authResponse.token);
+      console.log('Microsoft authentication successful');
+      navigation.replace('Home', { refreshed: true });
+    } catch (error) {
+      console.error('Microsoft authentication error:', error);
+      let errorMessage = 'Failed to authenticate with Microsoft';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        if (error.message.includes('User cancelled flow')) {
+          errorMessage = 'Authentication was cancelled';
+        } else if (error.message.includes('network error')) {
+          errorMessage = 'Network error occurred';
+        }
+      }
+
+      Alert.alert(
+        'Microsoft Authentication Error',
+        errorMessage,
+        [{ text: 'OK', onPress: () => console.log('Alert closed') }]
+      );
+    } finally {
+      setMicrosoftLoading(false);
+    }
+  };
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,13 +149,19 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       await AsyncStorage.setItem("token", res.token);
-      navigation.navigate("Home", { refreshed: true });
+      navigation.replace("Home", { refreshed: true });
     } catch (error) {
       console.error("Login error:", error);
-      Alert.alert(
-        "Login Failed", 
-        error instanceof Error ? error.message : "An error occurred during login"
-      );
+      let errorMessage = "An error occurred during login";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        if (error.message.includes('credentials')) {
+          errorMessage = "Invalid email or password";
+        }
+      }
+
+      Alert.alert("Login Failed", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -92,6 +193,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            editable={!loading && !microsoftLoading}
           />
         </View>
 
@@ -105,10 +207,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={secureEntry}
+              editable={!loading && !microsoftLoading}
             />
             <TouchableOpacity 
               onPress={() => setSecureEntry(!secureEntry)}
               style={styles.eyeIcon}
+              disabled={loading || microsoftLoading}
             >
               <Ionicons 
                 name={secureEntry ? "eye-off" : "eye"} 
@@ -120,9 +224,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         <TouchableOpacity 
-          style={styles.button} 
+          style={[styles.button, (loading || microsoftLoading) && styles.disabledButton]} 
           onPress={handleLogin}
-          disabled={loading}
+          disabled={loading || microsoftLoading}
         >
           {loading ? (
             <ActivityIndicator color="#5C573E" />
@@ -132,8 +236,21 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
 
         <TouchableOpacity 
+          style={[styles.button, (loading || microsoftLoading) && styles.disabledButton]}
+          onPress={handleMicrosoftLogin}
+          disabled={loading || microsoftLoading}
+        >
+          {microsoftLoading ? (
+            <ActivityIndicator color="#5C573E" />
+          ) : (
+            <Text style={styles.buttonText}>Sign in with Microsoft</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
           style={styles.registerLink}
           onPress={() => navigation.navigate("Register")}
+          disabled={loading || microsoftLoading}
         >
           <Text style={styles.registerText}>
             Don't have an account? <Text style={styles.registerHighlight}>Register</Text>
@@ -204,6 +321,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     marginTop: 20,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   buttonText: {
     fontSize: 18,

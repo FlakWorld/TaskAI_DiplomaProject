@@ -19,6 +19,7 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // Схемы
 const UserSchema = new mongoose.Schema({
+  name: String, // Добавьте это поле
   email: { 
     type: String, 
     unique: true,
@@ -27,8 +28,10 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
-  }
+    required: function() { return this.provider === 'local'; } // Требуется только для локальных пользователей
+  },
+  microsoftId: String,
+  provider: { type: String, enum: ['local', 'microsoft'], default: 'local' },
 });
 
 UserSchema.index({ email: 1 }, { 
@@ -65,7 +68,18 @@ const authenticate = async (req, res, next) => {
     if (!token) return res.status(401).json({ error: "Требуется авторизация" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    
+    // Check if user exists
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ error: "Пользователь не найден" });
+    }
+
+    req.user = {
+      ...decoded,
+      provider: user.provider || 'local'
+    };
+    
     next();
   } catch (error) {
     res.status(401).json({ error: "Неверный токен" });
@@ -128,6 +142,73 @@ app.post("/login", async (req, res) => {
 app.get("/auth", authenticate, (req, res) => {
   res.json({ message: "Authorized", user: req.user });
 });
+
+// express route: POST /auth/microsoft
+app.post('/auth/microsoft', async (req, res) => {
+  console.log('Received Microsoft auth request:', req.body);
+  const { name, email, microsoftId } = req.body;
+
+  if (!email || !microsoftId) {
+    console.log('Invalid data received:', { email, microsoftId });
+    return res.status(400).json({ message: 'Invalid data' });
+  }
+
+  try {
+    console.log('Searching for user with email:', email);
+    let user = await User.findOne({ 
+      $or: [
+        { email },
+        { microsoftId }
+      ]
+    });
+
+    if (!user) {
+      console.log('Creating new Microsoft user');
+      user = new User({
+        name,
+        email,
+        microsoftId,
+        provider: 'microsoft',
+      });
+    } else if (!user.microsoftId) {
+      console.log('Updating existing user with Microsoft ID');
+      user.microsoftId = microsoftId;
+      user.provider = 'microsoft';
+    }
+
+    await user.save();
+    console.log('User saved successfully:', user._id);
+
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        email: user.email,
+        provider: user.provider 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('Token generated for user:', user._id);
+    res.json({ 
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        provider: user.provider
+      }
+    });
+  } catch (err) {
+    console.error('Microsoft Auth Error:', err);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: err.message,
+      stack: err.stack 
+    });
+  }
+});
+
 
 // Задачи
 app.post("/tasks", authenticate, async (req, res) => {

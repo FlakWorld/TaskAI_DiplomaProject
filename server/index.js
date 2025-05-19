@@ -132,7 +132,15 @@ app.post("/login", async (req, res) => {
       { expiresIn: '1h' }
     );
 
-    res.json({ token });
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name || '',
+        provider: user.provider
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: "Ошибка входа" });
   }

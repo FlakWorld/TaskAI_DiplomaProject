@@ -94,6 +94,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       await AsyncStorage.setItem('token', authResponse.token);
+      await AsyncStorage.setItem('user', JSON.stringify(authResponse.user));
       console.log('Microsoft authentication successful');
       navigation.replace('Home', { refreshed: true });
     } catch (error) {
@@ -136,28 +137,27 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     setLoading(true);
-    
+
     try {
       const res = await login(email.toLowerCase(), password);
-      
-      if (res.error) {
-        throw new Error(res.error);
-      }
 
-      if (!res.token) {
-        throw new Error("No token received");
-      }
+      if (res.error) throw new Error(res.error);
+      if (!res.token) throw new Error("No token received");
+      if (!res.user) throw new Error("No user data received");
 
       await AsyncStorage.setItem("token", res.token);
+      await AsyncStorage.setItem("user", JSON.stringify(res.user));
+
       navigation.replace("Home", { refreshed: true });
     } catch (error) {
       console.error("Login error:", error);
       let errorMessage = "An error occurred during login";
-      
+
       if (error instanceof Error) {
-        errorMessage = error.message;
-        if (error.message.includes('credentials')) {
+        if (error.message.includes("credentials")) {
           errorMessage = "Invalid email or password";
+        } else {
+          errorMessage = error.message;
         }
       }
 
@@ -166,6 +166,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       setLoading(false);
     }
   };
+
 
   return (
     <KeyboardAvoidingView

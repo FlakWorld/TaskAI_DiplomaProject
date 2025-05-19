@@ -15,6 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getTasks, deleteTask } from "../server/api";
 import { ScreenProps } from "../types";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { getSuggestedTask, saveTaskPattern, rejectTaskPattern } from "../services/aiService";
 
 type Task = {
   _id: string;
@@ -31,6 +32,58 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
   const [refreshing, setRefreshing] = useState(false);
   const [isMenuVisible, setMenuVisible] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [suggestedTask, setSuggestedTask] = useState<string | null>(null);
+  const formatTime = (date: Date) => {
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+  const formatDate = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  };
+
+
+
+  useEffect(() => {
+    (async () => {
+      const task = await getSuggestedTask();
+      if (task) setSuggestedTask(task);
+    })();
+  }, []);
+
+  const createSuggestedTask = async () => {
+    if (!suggestedTask || !token) return;
+
+    try {
+      await saveTaskPattern(suggestedTask); // обучение
+      const now = new Date();
+      const newTask = {
+        title: suggestedTask,
+        date: formatDate(now),
+        time: formatTime(now),
+        status: "в прогрессе"
+      };
+      await fetch("http://192.168.1.11:5000/tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(newTask)
+      });
+      Alert.alert("✅ Создано", `"${suggestedTask}" добавлена`);
+      setSuggestedTask(null);
+      loadTasks(token); // обновить список
+    } catch (error) {
+      console.error("Ошибка создания задачи:", error);
+      Alert.alert("Ошибка", "Не удалось создать задачу");
+    }
+  };
+
+
 
   // Функция для форматирования даты в единый формат
   const formatDisplayDate = (dateString?: string) => {
@@ -230,6 +283,33 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
           onChangeText={setSearch}
         />
       </View>
+
+      {suggestedTask && (
+        <View style={{ backgroundColor: "#fff", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+          <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 8 }}>
+            🤖 ИИ предлагает задачу:
+          </Text>
+          <Text style={{ fontSize: 16, marginBottom: 12 }}>{suggestedTask}</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <TouchableOpacity
+              style={{ backgroundColor: "#D4E157", padding: 10, borderRadius: 8 }}
+              onPress={createSuggestedTask}
+            >
+              <Text style={{ fontWeight: "bold" }}>Создать</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ backgroundColor: "#EF5350", padding: 10, borderRadius: 8 }}
+              onPress={async () => {
+                await rejectTaskPattern(suggestedTask || "");
+                setSuggestedTask(null);
+              }}
+            >
+              <Text style={{ fontWeight: "bold", color: "#fff" }}>Отклонить</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
 
       <FlatList
         data={sortedTasks}

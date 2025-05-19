@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenProps } from "../types";
 import { createTask } from "../server/api";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { saveTaskPattern } from "../services/aiService";
 
 export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   const [task, setTask] = useState("");
@@ -75,6 +76,8 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   
       console.log("Ответ сервера:", response);
       
+      await saveTaskPattern(task); // обучение ИИ
+
       Alert.alert("Успех", "Задача успешно создана");
       navigation.navigate("Home", { refreshed: true });
   

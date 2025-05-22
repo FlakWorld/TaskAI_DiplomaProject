@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const {OAuth2Client} = require('google-auth-library');
+const googleClient = new OAuth2Client('221855869276-a3cm74t08419p5c2mvn2q2o6cm072dkh.apps.googleusercontent.com');
 
 const app = express();
 app.use(cors());
@@ -31,7 +33,8 @@ const UserSchema = new mongoose.Schema({
     required: function() { return this.provider === 'local'; } // Требуется только для локальных пользователей
   },
   microsoftId: String,
-  provider: { type: String, enum: ['local', 'microsoft'], default: 'local' },
+  googleId: String,
+  provider: { type: String, enum: ['local', 'microsoft', 'google'], default: 'local' },
 });
 
 UserSchema.index({ email: 1 }, { 
@@ -149,6 +152,74 @@ app.post("/login", async (req, res) => {
 // Проверка токена
 app.get("/auth", authenticate, (req, res) => {
   res.json({ message: "Authorized", user: req.user });
+});
+
+app.post('/auth/google', async (req, res) => {
+  const { idToken } = req.body;
+
+  if (!idToken) {
+    return res.status(400).json({ error: "ID Token отсутствует" });
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: '221855869276-6egb238f5i1ivimtrgme6s9nm9bdtad1.apps.googleusercontent.com',
+    });
+
+    const payload = ticket.getPayload();
+
+    const { email, name, sub: googleId } = payload;
+
+    if (!email || !googleId) {
+      return res.status(400).json({ error: "Некорректные данные пользователя" });
+    }
+
+    // Ищем пользователя с googleId или email
+    let user = await User.findOne({
+      $or: [
+        { email },
+        { googleId }
+      ]
+    });
+
+    if (!user) {
+      user = new User({
+        name,
+        email,
+        googleId,
+        provider: 'google',
+      });
+    } else if (!user.googleId) {
+      user.googleId = googleId;
+      user.provider = 'google';
+    }
+
+    await user.save();
+
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+        provider: user.provider,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        provider: user.provider,
+      }
+    });
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(401).json({ error: "Ошибка аутентификации Google" });
+  }
 });
 
 // express route: POST /auth/microsoft

@@ -16,6 +16,8 @@ import { getTasks, deleteTask } from "../server/api";
 import { ScreenProps } from "../types";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { getSuggestedTask, saveTaskPattern, rejectTaskPattern } from "../services/aiService";
+import { Image } from "react-native";
+import DinoImage from "../assets/dino.jpg";
 
 type Task = {
   _id: string;
@@ -286,9 +288,15 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
 
       {suggestedTask && (
         <View style={{ backgroundColor: "#fff", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-          <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 8 }}>
-            🤖 ИИ предлагает задачу:
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+            <Image
+              source={DinoImage}
+              style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
+            />
+            <Text style={{ fontSize: 16, fontWeight: "bold" }}>
+              ИИ предлагает задачу:
+            </Text>
+          </View>
           <Text style={{ fontSize: 16, marginBottom: 12 }}>{suggestedTask}</Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             <TouchableOpacity

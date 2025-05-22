@@ -4,8 +4,9 @@ const linking = {
   prefixes: [
     'msauth://com.taskai',
     'com.taskai://',
+    'com.taskai://oauthredirect',   // добавлено для Google
     Platform.OS === 'ios' ? 'msauth.com.taskai://auth' : 'msauth://com.taskai'
-  ].filter(Boolean) as string[], // Убедимся, что все элементы строки
+  ].filter(Boolean) as string[],
   config: {
     screens: {
       AuthCallback: {

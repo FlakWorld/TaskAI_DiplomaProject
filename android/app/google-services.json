@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "221855869276",
+    "project_id": "taskai-c6dc6",
+    "storage_bucket": "taskai-c6dc6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:221855869276:android:0113bf019c8de1a4b7f999",
+        "android_client_info": {
+          "package_name": "com.taskai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "221855869276-a3cm74t08419p5c2mvn2q2o6cm072dkh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.taskai",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "221855869276-6egb238f5i1ivimtrgme6s9nm9bdtad1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQvcibFxiRv7czFm68o1fjCYgEud7YtQM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "221855869276-6egb238f5i1ivimtrgme6s9nm9bdtad1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

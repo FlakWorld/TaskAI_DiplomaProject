@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { 
   View, 
   Text, 
@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { login, microsoftAuth } from "../server/api";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { authorize, AuthConfiguration } from 'react-native-app-auth';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
@@ -35,6 +36,73 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [microsoftLoading, setMicrosoftLoading] = useState(false);
   const [secureEntry, setSecureEntry] = useState(true);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '221855869276-6egb238f5i1ivimtrgme6s9nm9bdtad1.apps.googleusercontent.com' // из Google Cloud Console, обязательно web client ID!
+    });
+  }, []);
+
+  const signInWithGoogle = async () => {
+    try {
+      setGoogleLoading(true);
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+
+      console.log('Google user info:', userInfo);
+
+      // Отправляем idToken на сервер для регистрации/логина
+      const response = await fetch('http://192.168.1.11:5000/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: userInfo.idToken }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Ошибка сервера: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.token) throw new Error('Токен не получен с сервера');
+
+      await AsyncStorage.setItem('token', data.token);
+      await AsyncStorage.setItem('user', JSON.stringify(data.user));
+
+      navigation.replace("Home", { refreshed: true });
+    } catch (error: unknown) {
+      if (error instanceof Error) { // Проверяем, что error — это объект типа Error
+        if (error.message.includes(statusCodes.SIGN_IN_CANCELLED)) {
+          Alert.alert('Отмена', 'Вход через Google был отменён');
+        } else if (error.message.includes(statusCodes.IN_PROGRESS)) {
+          Alert.alert('В процессе', 'Авторизация уже выполняется');
+        } else if (error.message.includes(statusCodes.PLAY_SERVICES_NOT_AVAILABLE)) {
+          Alert.alert('Ошибка', 'Сервисы Google Play недоступны');
+        } else {
+          Alert.alert('Ошибка', error.message);
+        }
+        console.error(error);
+      } else {
+        Alert.alert('Ошибка', 'Произошла неизвестная ошибка');
+        console.error('Unknown error:', error);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+
+  const googleConfig: AuthConfiguration = {
+    issuer: 'https://accounts.google.com',
+    clientId: '221855869276-a3cm74t08419p5c2mvn2q2o6cm072dkh.apps.googleusercontent.com',  // замените на свой
+    redirectUrl: Platform.OS === 'ios' 
+      ? 'com.taskai:/oauthredirect'  // ваша схема + oauthredirect
+      : 'com.taskai:/oauthredirect',
+    scopes: ['openid', 'profile', 'email'],
+    additionalParameters: {},
+  };
 
   const microsoftConfig: AuthConfiguration = {
     issuer: 'https://login.microsoftonline.com/common/v2.0',
@@ -246,6 +314,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           ) : (
             <Text style={styles.buttonText}>Sign in with Microsoft</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.button} onPress={signInWithGoogle} disabled={googleLoading}>
+            {googleLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Войти через Google</Text>
+            )}
         </TouchableOpacity>
 
         <TouchableOpacity 

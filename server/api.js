@@ -1,4 +1,4 @@
-const API_URL = "http://192.168.1.11:5000";
+export const API_URL = "http://192.168.1.11:5000";
 
 // Универсальный обработчик запросов (без изменений в интерфейсе)
 const makeRequest = async (endpoint, method, body = null, token = null) => {

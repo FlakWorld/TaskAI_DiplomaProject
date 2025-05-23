@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
-  RefreshControl
+  RefreshControl,
+  Platform,
+  Linking,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getTasks, deleteTask } from "../server/api";
@@ -18,6 +20,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { getSuggestedTask, saveTaskPattern, rejectTaskPattern } from "../services/aiService";
 import { Image } from "react-native";
 import DinoImage from "../assets/dino.jpg";
+import PushNotification from "react-native-push-notification";
 
 type Task = {
   _id: string;
@@ -27,7 +30,7 @@ type Task = {
   status: "в прогрессе" | "выполнено";
 };
 
-export default function HomeScreen({ navigation, route: _route }: ScreenProps<"Home">) {
+export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -35,19 +38,84 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
   const [isMenuVisible, setMenuVisible] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [suggestedTask, setSuggestedTask] = useState<string | null>(null);
+
+  // Инициализация push-уведомлений
+  useEffect(() => {
+    // Создаем канал для уведомлений (Android)
+    PushNotification.createChannel(
+      {
+        channelId: "tasks-channel",
+        channelName: "Tasks Notifications",
+        channelDescription: "Notifications for task reminders",
+        playSound: true,
+        soundName: "default",
+        importance: 4,
+        vibrate: true,
+      },
+      (created: any) => console.log(`Channel created: ${created}`)
+    );
+
+    // Конфигурируем PushNotification
+    PushNotification.configure({
+      onRegister: function (token: any) {
+        console.log("TOKEN:", token);
+      },
+      onNotification: function (notification: any) {
+        console.log("NOTIFICATION:", notification);
+      },
+      onAction: function (notification: any) {
+        console.log("ACTION:", notification.action);
+        console.log("NOTIFICATION:", notification);
+      },
+      onRegistrationError: function(err: any) {
+        console.error(err.message, err);
+      },
+      permissions: {
+        alert: true,
+        badge: true,
+        sound: true,
+      },
+      popInitialNotification: true,
+      requestPermissions: Platform.OS === 'ios',
+    });
+
+    // Запрашиваем разрешения для Android 13+
+    if (Platform.OS === 'android' && Platform.Version >= 33) {
+      PushNotification.requestPermissions(['alert', 'sound']);
+    }
+  }, []);
+
+  // Предупреждение для Android 12+ (API 31+) о необходимости разрешения в настройках
+  useEffect(() => {
+    if (Platform.OS === "android" && Platform.Version >= 31) {
+      Alert.alert(
+        "Важное уведомление",
+        "Для корректной работы точных уведомлений требуется разрешение на использование точных будильников в настройках устройства. " +
+          "Пожалуйста, убедитесь, что это разрешение предоставлено.",
+        [
+          {
+            text: "Открыть настройки",
+            onPress: () => Linking.openSettings(),
+          },
+          { text: "Отмена", style: "cancel" },
+        ]
+      );
+    }
+  }, []);
+
+  // Форматирование времени и даты
   const formatTime = (date: Date) => {
     const hours = String(date.getHours()).padStart(2, "0");
     const minutes = String(date.getMinutes()).padStart(2, "0");
     return `${hours}:${minutes}`;
   };
+  
   const formatDate = (date: Date) => {
     const day = String(date.getDate()).padStart(2, "0");
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
     return `${day}.${month}.${year}`;
   };
-
-
 
   useEffect(() => {
     (async () => {
@@ -56,53 +124,132 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
     })();
   }, []);
 
+  // Функция для создания уникального числового ID из строки
+  const stringToNumericId = (str: string): number => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Преобразуем в 32-битное число
+    }
+    return Math.abs(hash);
+  };
+
+  // Планирование уведомлений (исправленная версия)
+  const scheduleNotifications = (tasks: Task[]) => {
+    // Отменяем все существующие уведомления
+    PushNotification.cancelAllLocalNotifications();
+
+    console.log("Планируем уведомления для задач:", tasks.length);
+
+    tasks.forEach((task) => {
+      if (task.status === "выполнено") {
+        console.log(`Пропускаем выполненную задачу: ${task.title}`);
+        return;
+      }
+
+      if (task.date && task.time) {
+        try {
+          const [day, month, year] = task.date.split(".");
+          const [hours, minutes] = task.time.split(":");
+          
+          const taskDate = new Date(
+            Number(year), 
+            Number(month) - 1, 
+            Number(day), 
+            Number(hours), 
+            Number(minutes)
+          );
+
+          if (isNaN(taskDate.getTime())) {
+            console.warn(`Некорректная дата у задачи "${task.title}":`, task.date, task.time);
+            return;
+          }
+
+          // Время уведомления - за 10 минут до задачи
+          const notifyTime = new Date(taskDate.getTime() - 10 * 60 * 1000);
+          const now = new Date();
+
+          console.log(`Задача: ${task.title}`);
+          console.log(`Время задачи: ${taskDate}`);
+          console.log(`Время уведомления: ${notifyTime}`);
+          console.log(`Текущее время: ${now}`);
+
+          if (notifyTime > now) {
+            const numericId = stringToNumericId(task._id);
+            
+            PushNotification.localNotificationSchedule({
+              channelId: "tasks-channel",
+              id: numericId.toString(), // Преобразуем в строку для совместимости
+              title: "Напоминание о задаче",
+              message: `Уважаемый пользователь, через 10 минут начинается задача: "${task.title}"`,
+              date: notifyTime,
+              allowWhileIdle: true,
+              playSound: true,
+              soundName: "default",
+              vibrate: true,
+              vibration: 300,
+              priority: "high",
+              visibility: "public",
+              importance: "high",
+              userInfo: {
+                taskId: task._id,
+                taskTitle: task.title,
+              },
+            });
+
+            console.log(`Уведомление запланировано для задачи "${task.title}" на ${notifyTime}`);
+          } else {
+            console.log(`Время уведомления для задачи "${task.title}" уже прошло`);
+          }
+        } catch (error) {
+          console.warn(`Ошибка при планировании уведомления для задачи "${task.title}":`, error);
+        }
+      } else {
+        console.log(`У задачи "${task.title}" нет даты или времени`);
+      }
+    });
+  };
+
   const createSuggestedTask = async () => {
     if (!suggestedTask || !token) return;
 
     try {
-      await saveTaskPattern(suggestedTask); // обучение
+      await saveTaskPattern(suggestedTask);
       const now = new Date();
       const newTask = {
         title: suggestedTask,
         date: formatDate(now),
         time: formatTime(now),
-        status: "в прогрессе"
+        status: "в прогрессе",
       };
       await fetch("http://192.168.1.11:5000/tasks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newTask)
+        body: JSON.stringify(newTask),
       });
       Alert.alert("✅ Создано", `"${suggestedTask}" добавлена`);
       setSuggestedTask(null);
-      loadTasks(token); // обновить список
+      loadTasks(token);
     } catch (error) {
       console.error("Ошибка создания задачи:", error);
       Alert.alert("Ошибка", "Не удалось создать задачу");
     }
   };
 
-
-
-  // Функция для форматирования даты в единый формат
+  // Форматирование даты и времени для отображения
   const formatDisplayDate = (dateString?: string) => {
     if (!dateString) return "";
-    
-    // Если дата уже в формате DD.MM.YYYY
-    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) {
-      return dateString;
-    }
-    
-    // Если дата в ISO формате
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) return dateString;
+
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "";
-      
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = date.getFullYear();
       return `${day}.${month}.${year}`;
     } catch {
@@ -110,63 +257,55 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
     }
   };
 
-  // Функция для форматирования времени в единый формат
   const formatDisplayTime = (timeString?: string) => {
     if (!timeString) return "";
-    
-    // Если время уже в формате HH:mm
-    if (/^\d{2}:\d{2}$/.test(timeString)) {
-      return timeString;
-    }
-    
-    // Если время в ISO формате
+    if (/^\d{2}:\d{2}$/.test(timeString)) return timeString;
+
     try {
-      const timePart = timeString.includes('T') ? timeString.split('T')[1] : timeString;
+      const timePart = timeString.includes("T") ? timeString.split("T")[1] : timeString;
       const time = new Date(`1970-01-01T${timePart}Z`);
       if (isNaN(time.getTime())) return "";
-      
-      const hours = String(time.getHours()).padStart(2, '0');
-      const minutes = String(time.getMinutes()).padStart(2, '0');
+      const hours = String(time.getHours()).padStart(2, "0");
+      const minutes = String(time.getMinutes()).padStart(2, "0");
       return `${hours}:${minutes}`;
     } catch {
       return "";
     }
   };
 
-  const loadTasks = useCallback(async (userToken: string) => {
-    try {
-      setLoading(true);
-      const data = await getTasks(userToken);
-      
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid tasks data format");
-      }
+  // Загрузка задач с сервера и планирование уведомлений
+  const loadTasks = useCallback(
+    async (userToken: string) => {
+      try {
+        setLoading(true);
+        const data = await getTasks(userToken);
 
-      // Форматируем задачи для единообразного отображения
-      const formattedTasks = data.map(task => ({
-        ...task,
-        date: formatDisplayDate(task.date),
-        time: formatDisplayTime(task.time),
-        status: task.status || "в прогрессе"
-      }));
+        if (!Array.isArray(data)) throw new Error("Invalid tasks data format");
 
-      setTasks(formattedTasks);
-    } catch (error) {
-      console.error("Failed to load tasks:", error);
-      Alert.alert(
-        "Error", 
-        error instanceof Error ? error.message : "Failed to load tasks"
-      );
-      
-      if (error instanceof Error && error.message.includes("401")) {
-        await AsyncStorage.removeItem("token");
-        navigation.replace("Login");
+        const formattedTasks = data.map((task) => ({
+          ...task,
+          date: formatDisplayDate(task.date),
+          time: formatDisplayTime(task.time),
+          status: task.status || "в прогрессе",
+        }));
+
+        setTasks(formattedTasks);
+        scheduleNotifications(formattedTasks);
+      } catch (error) {
+        console.error("Failed to load tasks:", error);
+        Alert.alert("Error", error instanceof Error ? error.message : "Failed to load tasks");
+
+        if (error instanceof Error && error.message.includes("401")) {
+          await AsyncStorage.removeItem("token");
+          navigation.replace("Login");
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [navigation]);
+    },
+    [navigation]
+  );
 
   const loadData = useCallback(async () => {
     const storedToken = await AsyncStorage.getItem("token");
@@ -179,10 +318,10 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
   }, [loadTasks, navigation]);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribe = navigation.addListener("focus", () => {
       if (token) loadTasks(token);
     });
-    
+
     return unsubscribe;
   }, [navigation, token, loadTasks]);
 
@@ -197,25 +336,28 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
 
   const removeTask = async (id: string) => {
     if (!token) return;
-    
+
     try {
+      // Отменяем уведомление для удаляемой задачи
+      const numericId = stringToNumericId(id);
+      PushNotification.cancelLocalNotifications({ id: numericId.toString() });
+      
       await deleteTask(id, token);
-      setTasks(prev => prev.filter(task => task._id !== id));
+      setTasks((prev) => prev.filter((task) => task._id !== id));
     } catch (error) {
       console.error("Failed to delete task:", error);
-      Alert.alert(
-        "Error", 
-        error instanceof Error ? error.message : "Failed to delete task"
-      );
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to delete task");
     }
   };
 
   const handleLogout = async () => {
+    // Отменяем все уведомления при выходе
+    PushNotification.cancelAllLocalNotifications();
     await AsyncStorage.removeItem("token");
     navigation.replace("Login");
   };
 
-  const filteredTasks = tasks.filter(task =>
+  const filteredTasks = tasks.filter((task) =>
     task.title.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -227,10 +369,7 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
 
   const renderTaskItem = ({ item }: { item: Task }) => (
     <TouchableOpacity
-      style={[
-        styles.task,
-        item.status === "выполнено" && styles.taskCompleted
-      ]}
+      style={[styles.task, item.status === "выполнено" && styles.taskCompleted]}
       onPress={() => navigation.navigate("EditTask", { id: item._id })}
     >
       <View style={styles.taskContent}>
@@ -238,18 +377,14 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
         <View style={styles.taskMeta}>
           {item.date && <Text style={styles.taskDate}>{item.date}</Text>}
           {item.time && <Text style={styles.taskTime}>{item.time}</Text>}
-          <Text style={[
-            styles.taskStatus,
-            item.status === "выполнено" && styles.statusCompleted
-          ]}>
+          <Text
+            style={[styles.taskStatus, item.status === "выполнено" && styles.statusCompleted]}
+          >
             {item.status}
           </Text>
         </View>
       </View>
-      <TouchableOpacity 
-        onPress={() => removeTask(item._id)}
-        style={styles.deleteButton}
-      >
+      <TouchableOpacity onPress={() => removeTask(item._id)} style={styles.deleteButton}>
         <Ionicons name="trash-outline" size={20} color="#ff4444" />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -266,10 +401,7 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => setMenuVisible(true)}
-          style={styles.menuButton}
-        >
+        <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
           <Ionicons name="menu" size={30} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.title}>My Tasks</Text>
@@ -287,15 +419,20 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
       </View>
 
       {suggestedTask && (
-        <View style={{ backgroundColor: "#fff", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+        <View
+          style={{
+            backgroundColor: "#fff",
+            borderRadius: 10,
+            padding: 16,
+            marginBottom: 16,
+          }}
+        >
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
             <Image
               source={DinoImage}
               style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
             />
-            <Text style={{ fontSize: 16, fontWeight: "bold" }}>
-              ИИ предлагает задачу:
-            </Text>
+            <Text style={{ fontSize: 16, fontWeight: "bold" }}>ИИ предлагает задачу:</Text>
           </View>
           <Text style={{ fontSize: 16, marginBottom: 12 }}>{suggestedTask}</Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -318,10 +455,9 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
         </View>
       )}
 
-
       <FlatList
         data={sortedTasks}
-        keyExtractor={item => item._id}
+        keyExtractor={(item) => item._id}
         renderItem={renderTaskItem}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -333,36 +469,40 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
           />
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            {search ? "No matching tasks found" : "No tasks yet"}
-          </Text>
+          <Text style={styles.emptyText}>{search ? "No matching tasks found" : "No tasks yet"}</Text>
         }
       />
 
       <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => navigation.navigate("Task", { id: undefined })}
+        onPress={() => {
+          // Тестовое уведомление
+          PushNotification.localNotification({
+            channelId: "tasks-channel",
+            title: "Тестовое уведомление",
+            message: "Если вы видите это, уведомления работают!",
+            playSound: true,
+            soundName: "default",
+            vibrate: true,
+          });
+        }}
+        style={{ padding: 20, backgroundColor: "#4CAF50", margin: 10, borderRadius: 8 }}
       >
+        <Text style={{ color: "#fff", textAlign: "center" }}>Показать тестовое уведомление</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate("Task", { id: undefined })}>
         <Ionicons name="add" size={24} color="#5C573E" />
         <Text style={styles.addButtonText}>New Task</Text>
       </TouchableOpacity>
 
-      <Modal
-        transparent={true}
-        visible={isMenuVisible}
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={() => setMenuVisible(false)}
-        >
+      <Modal transparent visible={isMenuVisible} onRequestClose={() => setMenuVisible(false)}>
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
           <View style={styles.menu}>
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => {
                 setMenuVisible(false);
-                navigation.navigate('Profile'); // Переход на экран Profile
+                navigation.navigate("Profile");
               }}
             >
               <Ionicons name="person-outline" size={20} style={styles.menuIcon} />

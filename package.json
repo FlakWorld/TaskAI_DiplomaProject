@@ -26,6 +26,7 @@
     "react-native-app-auth": "^8.0.2",
     "react-native-gesture-handler": "^2.24.0",
     "react-native-image-picker": "^8.2.1",
+    "react-native-push-notification": "^8.1.1",
     "react-native-safe-area-context": "^5.2.0",
     "react-native-screens": "^4.9.0",
     "react-native-tflite": "^0.0.2",

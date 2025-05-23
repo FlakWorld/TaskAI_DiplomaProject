@@ -46,8 +46,8 @@ const makeRequest = async (endpoint, method, body = null, token = null) => {
 };
 
 // Аутентификация (без изменений)
-export const register = async (email, password) => {
-  return makeRequest("/register", "POST", { email, password });
+export const register = async (email, password, name, surname) => {
+  return makeRequest("/register", "POST", { email, password, name, surname });
 };
 
 export const login = async (email, password) => {

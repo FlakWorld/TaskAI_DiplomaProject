@@ -362,6 +362,7 @@ export default function HomeScreen({ navigation, route: _route }: ScreenProps<"H
               style={styles.menuItem}
               onPress={() => {
                 setMenuVisible(false);
+                navigation.navigate('Profile'); // Переход на экран Profile
               }}
             >
               <Ionicons name="person-outline" size={20} style={styles.menuIcon} />

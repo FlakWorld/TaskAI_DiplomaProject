@@ -9,6 +9,8 @@ export type RootStackParamList = {
   Task: { id?: string }; // id теперь явно необязательный
   EditTask: { id?: string };
   EditTaskForm: { task: { _id?: string; title: string; date: string; time: string; status: string } };
+  Profile: undefined;
+  EditProfile: undefined;
 };
 
 // Универсальный тип для всех экранов

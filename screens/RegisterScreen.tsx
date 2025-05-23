@@ -9,20 +9,45 @@ type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [surname, setSurname] = useState("");
 
   const handleRegister = async () => {
-    const res = await register(email, password);
-    if (res.error) {
-      Alert.alert("Error", res.error);
-    } else {
-      Alert.alert("Success", "Account created");
-      navigation.navigate("Login");
+    if (!email || !password || !name || !surname) {
+      Alert.alert("Ошибка", "Пожалуйста, заполните все поля");
+      return;
+    }
+    try {
+      // Предполагается, что API /register принимает name и surname, если нет — надо добавить на сервере
+      const res = await register(email, password, name, surname);
+      if (res.error) {
+        Alert.alert("Ошибка", res.error);
+      } else {
+        Alert.alert("Успех", "Аккаунт создан");
+        navigation.navigate("Login");
+      }
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось зарегистрироваться");
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Имя"
+        placeholderTextColor="#5C573E"
+        value={name}
+        onChangeText={setName}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Фамилия"
+        placeholderTextColor="#5C573E"
+        value={surname}
+        onChangeText={setSurname}
+      />
       <TextInput
         style={styles.input}
         placeholder="Email"

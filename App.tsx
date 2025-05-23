@@ -8,6 +8,8 @@ import HomeScreen from "./screens/HomeScreen";
 import CreationTask from "./screens/CreationTask";
 import TaskDetail from "./screens/TaskDetail";
 import EditTaskForm from "./screens/EditTaskForm";
+import ProfileScreen from "./screens/ProfileScreen";
+import EditProfileScreen from "./screens/EditProfileScreen";
 import { RootStackParamList } from "./types";
 import linking from './server/linking';
 
@@ -24,6 +26,8 @@ export default function App() {
         <Stack.Screen name="Task" component={CreationTask} />
         <Stack.Screen name="EditTask" component={TaskDetail} />
         <Stack.Screen name="EditTaskForm" component={EditTaskForm} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

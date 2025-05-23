@@ -47,6 +47,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const signInWithGoogle = async () => {
     try {
       setGoogleLoading(true);
+
+      await GoogleSignin.signOut();
+
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
 

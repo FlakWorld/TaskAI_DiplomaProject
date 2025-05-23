@@ -21,7 +21,8 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // Схемы
 const UserSchema = new mongoose.Schema({
-  name: String, // Добавьте это поле
+  name: String, // Имя пользователя
+  surname: String, // Добавляем фамилию
   email: { 
     type: String, 
     unique: true,
@@ -30,12 +31,14 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: function() { return this.provider === 'local'; } // Требуется только для локальных пользователей
+    required: function() { return this.provider === 'local'; }
   },
   microsoftId: String,
   googleId: String,
   provider: { type: String, enum: ['local', 'microsoft', 'google'], default: 'local' },
+  avatarUrl: String,
 });
+
 
 UserSchema.index({ email: 1 }, { 
   unique: true, 
@@ -92,9 +95,9 @@ const authenticate = async (req, res, next) => {
 // Регистрация
 app.post("/register", async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email и пароль обязательны" });
+    const { email, password, name, surname } = req.body;
+    if (!email || !password || !name || !surname) {
+      return res.status(400).json({ error: "Email, пароль, имя и фамилия обязательны" });
     }
 
     const existingUser = await User.findOne({ email });
@@ -103,7 +106,7 @@ app.post("/register", async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashedPassword });
+    const user = new User({ email, password: hashedPassword, name, surname });
     await user.save();
 
     const token = jwt.sign(
@@ -141,6 +144,8 @@ app.post("/login", async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name || '',
+        surname: user.surname || "",
+        avatar: user.avatarUrl || "https://via.placeholder.com/80",
         provider: user.provider
       }
     });
@@ -383,6 +388,62 @@ app.delete("/tasks/:id", authenticate, async (req, res) => {
     res.json({ message: "Задача удалена" });
   } catch (error) {
     res.status(500).json({ error: "Ошибка удаления" });
+  }
+});
+
+// PUT /user/profile
+app.put("/user/profile", authenticate, async (req, res) => {
+  try {
+    const { name, surname, avatarUrl } = req.body;
+    const updates = {};
+
+    if (typeof name === "string") updates.name = name.trim();
+    if (typeof surname === "string") updates.surname = surname.trim();
+    if (typeof avatarUrl === "string" || avatarUrl === null) updates.avatarUrl = avatarUrl;
+
+    const user = await User.findByIdAndUpdate(req.user.userId, updates, { new: true });
+
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    res.json({
+      message: "Профиль обновлён",
+      user: {
+        id: user._id,
+        name: user.name,
+        surname: user.surname,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        provider: user.provider,
+      },
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ error: "Ошибка обновления профиля" });
+  }
+});
+
+// GET /user/profile - вернуть данные пользователя
+app.get("/user/profile", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    res.json({
+      id: user._id,
+      name: user.name || "",
+      surname: user.surname || "",
+      email: user.email || "",
+      avatarUrl: user.avatarUrl || null,
+      provider: user.provider,
+    });
+  } catch (error) {
+    console.error("Ошибка получения профиля пользователя:", error);
+    res.status(500).json({ error: "Ошибка получения профиля пользователя" });
   }
 });
 

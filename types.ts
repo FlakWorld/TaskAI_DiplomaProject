@@ -11,6 +11,7 @@ export type RootStackParamList = {
   EditTaskForm: { task: { _id?: string; title: string; date: string; time: string; status: string } };
   Profile: undefined;
   EditProfile: undefined;
+  EmailVerification: { email: string };
 };
 
 // Универсальный тип для всех экранов

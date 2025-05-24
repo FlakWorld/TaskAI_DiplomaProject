@@ -23,17 +23,41 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert("Ошибка", "Пожалуйста, заполните все поля");
       return;
     }
+
+    if (password.length < 6) {
+      Alert.alert("Ошибка", "Пароль должен содержать минимум 6 символов");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Ошибка", "Введите корректный email адрес");
+      return;
+    }
+
+    setLoading(true);
     try {
-      // Предполагается, что API /register принимает name и surname, если нет — надо добавить на сервере
       const res = await register(email, password, name, surname);
+      
       if (res.error) {
         Alert.alert("Ошибка", res.error);
-      } else {
-        Alert.alert("Успех", "Аккаунт создан");
-        navigation.navigate("Login");
+      } else if (res.emailSent) {
+        // Успешная регистрация - перенаправляем на экран подтверждения
+        Alert.alert(
+          "Регистрация успешна!", 
+          res.message,
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.navigate("EmailVerification", { email })
+            }
+          ]
+        );
       }
-    } catch (error) {
-      Alert.alert("Ошибка", "Не удалось зарегистрироваться");
+    } catch (error: any) {
+      Alert.alert("Ошибка", error.message || "Не удалось зарегистрироваться");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,6 +98,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                       value={name}
                       onChangeText={setName}
                       autoCapitalize="words"
+                      editable={!loading}
                     />
                   </View>
                 </View>
@@ -89,6 +114,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                       value={surname}
                       onChangeText={setSurname}
                       autoCapitalize="words"
+                      editable={!loading}
                     />
                   </View>
                 </View>
@@ -106,6 +132,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                     onChangeText={setEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    editable={!loading}
                   />
                 </View>
               </View>
@@ -121,10 +148,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                     secureTextEntry={secureEntry}
                     value={password}
                     onChangeText={setPassword}
+                    editable={!loading}
                   />
                   <TouchableOpacity 
                     onPress={() => setSecureEntry(!secureEntry)}
                     style={styles.eyeIcon}
+                    disabled={loading}
                   >
                     <Ionicons 
                       name={secureEntry ? "eye-off" : "eye"} 

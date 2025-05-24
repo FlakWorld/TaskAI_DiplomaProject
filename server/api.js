@@ -1,6 +1,6 @@
 export const API_URL = "http://192.168.1.11:5000";
 
-// Универсальный обработчик запросов (без изменений в интерфейсе)
+// Универсальный обработчик запросов
 const makeRequest = async (endpoint, method, body = null, token = null) => {
   const headers = {
     "Content-Type": "application/json",
@@ -16,7 +16,6 @@ const makeRequest = async (endpoint, method, body = null, token = null) => {
   try {
     const response = await fetch(`${API_URL}${endpoint}`, config);
     
-    // Проверяем статус ответа перед попыткой парсинга JSON
     if (!response.ok) {
       const errorData = await response.text();
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -24,11 +23,22 @@ const makeRequest = async (endpoint, method, body = null, token = null) => {
       try {
         const jsonError = JSON.parse(errorData);
         errorMessage = jsonError.error || errorMessage;
-      } catch {
-        errorMessage = errorData || errorMessage;
+        
+        // Возвращаем объект с дополнительной информацией для email верификации
+        if (jsonError.emailNotVerified) {
+          return { 
+            error: errorMessage, 
+            emailNotVerified: true 
+          };
+        }
+        
+        throw new Error(errorMessage);
+      } catch (parseError) {
+        if (parseError.message !== errorMessage) {
+          throw new Error(errorData || errorMessage);
+        }
+        throw parseError;
       }
-      
-      throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -36,7 +46,6 @@ const makeRequest = async (endpoint, method, body = null, token = null) => {
   } catch (error) {
     console.error(`Ошибка запроса ${endpoint}:`, error);
     
-    // Улучшенные сообщения об ошибках
     if (error.message.includes('Failed to fetch')) {
       throw new Error('Нет соединения с сервером');
     }
@@ -45,7 +54,7 @@ const makeRequest = async (endpoint, method, body = null, token = null) => {
   }
 };
 
-// Аутентификация (без изменений)
+// Аутентификация
 export const register = async (email, password, name, surname) => {
   return makeRequest("/register", "POST", { email, password, name, surname });
 };
@@ -58,7 +67,16 @@ export const checkAuth = async (token) => {
   return makeRequest("/auth", "GET", null, token);
 };
 
-// Операции с задачами (с сохранением текущего интерфейса)
+// Новые функции для работы с email подтверждением
+export const verifyEmail = async (token) => {
+  return makeRequest(`/verify-email?token=${token}`, "GET");
+};
+
+export const resendVerification = async (email) => {
+  return makeRequest("/resend-verification", "POST", { email });
+};
+
+// Операции с задачами
 export const createTask = async (title, date, time, status, token) => {
   return makeRequest(
     "/tasks", 
@@ -99,6 +117,11 @@ export const updateTask = async (task, token) => {
   );
 };
 
+// OAuth аутентификация
 export const microsoftAuth = async (name, email, microsoftId) => {
   return makeRequest("/auth/microsoft", "POST", { name, email, microsoftId });
+};
+
+export const googleAuth = async (idToken) => {
+  return makeRequest("/auth/google", "POST", { idToken });
 };

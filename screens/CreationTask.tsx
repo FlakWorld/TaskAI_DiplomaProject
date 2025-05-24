@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ScreenProps } from "../types";
+import { ScreenProps, TASK_CATEGORIES } from "../types";
 import { createTask } from "../server/api";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { saveTaskPattern } from "../services/aiService";
@@ -25,6 +25,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   const [task, setTask] = useState("");
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
@@ -69,6 +70,14 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
     return `${hours}:${minutes}`;
   };
 
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter(t => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
   const saveTask = async () => {
     if (!task.trim()) {
       Alert.alert("Ошибка", "Введите название задачи!");
@@ -85,7 +94,8 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
         title: task,
         date: formatDate(date),
         time: formatTime(time),
-        status: "в прогрессе"
+        status: "в прогрессе",
+        tags: selectedTags
       };
   
       console.log("Отправка данных:", taskData);
@@ -95,6 +105,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
         taskData.date,
         taskData.time,
         taskData.status,
+        taskData.tags,
         token
       );
   
@@ -219,6 +230,38 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                   />
                 </View>
                 <Text style={styles.charCounter}>{task.length}/100</Text>
+              </View>
+
+              {/* Categories Section */}
+              <View style={styles.categoriesSection}>
+                <Text style={styles.sectionTitle}>Категории</Text>
+                <View style={styles.tagsGrid}>
+                  {TASK_CATEGORIES.map((category) => (
+                    <TouchableOpacity
+                      key={category.name}
+                      style={[
+                        styles.tagItem,
+                        selectedTags.includes(category.name) && {
+                          backgroundColor: category.color + '20',
+                          borderColor: category.color,
+                        }
+                      ]}
+                      onPress={() => toggleTag(category.name)}
+                    >
+                      <Ionicons 
+                        name={category.icon as any} 
+                        size={16} 
+                        color={selectedTags.includes(category.name) ? category.color : '#6B6F45'} 
+                      />
+                      <Text style={[
+                        styles.tagText,
+                        selectedTags.includes(category.name) && { color: category.color }
+                      ]}>
+                        {category.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               {/* Date & Time Section */}
@@ -445,6 +488,9 @@ const styles = StyleSheet.create({
   inputSection: {
     marginBottom: 30,
   },
+  categoriesSection: {
+    marginBottom: 30,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -484,6 +530,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(107, 111, 69, 0.6)',
     marginTop: 8,
+  },
+  tagsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 111, 69, 0.2)',
+    backgroundColor: 'rgba(107, 111, 69, 0.05)',
+    gap: 6,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B6F45',
   },
   dateTimeSection: {
     marginBottom: 30,

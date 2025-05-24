@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getTasks, deleteTask } from "../server/api";
-import { ScreenProps } from "../types";
+import { ScreenProps, TASK_CATEGORIES } from "../types";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { getSuggestedTask, saveTaskPattern, rejectTaskPattern } from "../services/aiService";
 import { Image } from "react-native";
@@ -33,6 +33,7 @@ type Task = {
   date?: string;
   time?: string;
   status: "в прогрессе" | "выполнено";
+  tags?: string[];
 };
 
 export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
@@ -44,6 +45,10 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const [token, setToken] = useState<string | null>(null);
   const [suggestedTask, setSuggestedTask] = useState<string | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+  
+  // Новые состояния для фильтрации
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
 
   // Инициализация push-уведомлений
   useEffect(() => {
@@ -269,6 +274,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         date: formatDate(now),
         time: formatTime(now),
         status: "в прогрессе",
+        tags: [],
       };
       await fetch("http://192.168.1.11:5000/tasks", {
         method: "POST",
@@ -334,6 +340,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           date: formatDisplayDate(task.date),
           time: formatDisplayTime(task.time),
           status: task.status || "в прогрессе",
+          tags: task.tags || [],
         }));
 
         setTasks(formattedTasks);
@@ -404,9 +411,13 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     navigation.replace("Login");
   };
 
-  const filteredTasks = tasks.filter((task) =>
-    task.title.toLowerCase().includes(search.toLowerCase())
-  );
+  // Обновленная фильтрация с поддержкой категорий
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch = task.title.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = !selectedCategory || 
+      (task.tags && task.tags.includes(selectedCategory));
+    return matchesSearch && matchesCategory;
+  });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     if (a.status === "в прогрессе" && b.status === "выполнено") return -1;
@@ -439,6 +450,33 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               ]}>
                 {item.title}
               </Text>
+              
+              {/* Отображение тегов */}
+              {item.tags && item.tags.length > 0 && (
+                <View style={styles.taskTags}>
+                  {item.tags.slice(0, 3).map((tag) => {
+                    const category = TASK_CATEGORIES.find(c => c.name === tag);
+                    return (
+                      <View 
+                        key={tag} 
+                        style={[styles.taskTag, { backgroundColor: category?.color + '20' }]}
+                      >
+                        <Ionicons 
+                          name={category?.icon as any || 'pricetag'} 
+                          size={10} 
+                          color={category?.color || '#6B6F45'} 
+                        />
+                        <Text style={[styles.taskTagText, { color: category?.color || '#6B6F45' }]}>
+                          {tag}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  {item.tags.length > 3 && (
+                    <Text style={styles.moreTagsText}>+{item.tags.length - 3}</Text>
+                  )}
+                </View>
+              )}
               
               <View style={styles.taskMeta}>
                 {item.date && (
@@ -517,8 +555,35 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           <Text style={styles.tasksCount}>{tasks.length} задач</Text>
         </View>
         
-        <View style={styles.headerRight} />
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowCategoryFilter(true)}
+        >
+          <LinearGradient
+            colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+            style={styles.filterButtonGradient}
+          >
+            <Ionicons name="funnel-outline" size={20} color="#FFF" />
+            {selectedCategory && (
+              <View style={styles.filterIndicator} />
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
+
+      {/* Category Filter */}
+      {selectedCategory && (
+        <View style={styles.activeFilterContainer}>
+          <View style={styles.activeFilter}>
+            <Text style={styles.activeFilterText}>
+              Фильтр: {selectedCategory}
+            </Text>
+            <TouchableOpacity onPress={() => setSelectedCategory(null)}>
+              <Ionicons name="close" size={16} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Search */}
       <View style={styles.searchContainer}>
@@ -608,10 +673,10 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               <Ionicons name="clipboard-outline" size={60} color="rgba(255,255,255,0.6)" />
             </View>
             <Text style={styles.emptyTitle}>
-              {search ? "Ничего не найдено" : "Пока нет задач"}
+              {search || selectedCategory ? "Ничего не найдено" : "Пока нет задач"}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {search ? "Попробуйте изменить поисковый запрос" : "Создайте свою первую задачу"}
+              {search || selectedCategory ? "Попробуйте изменить фильтры" : "Создайте свою первую задачу"}
             </Text>
           </View>
         }
@@ -631,6 +696,65 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           <Text style={styles.addButtonText}>Новая задача</Text>
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* Category Filter Modal */}
+      <Modal
+        transparent={true}
+        visible={showCategoryFilter}
+        onRequestClose={() => setShowCategoryFilter(false)}
+        animationType="fade"
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCategoryFilter(false)}
+        >
+          <View style={styles.categoryModal}>
+            <LinearGradient
+              colors={['#FFF', '#F8F9FA']}
+              style={styles.categoryModalGradient}
+            >
+              <Text style={styles.categoryModalTitle}>Фильтр по категориям</Text>
+              
+              <TouchableOpacity
+                style={[styles.categoryOption, !selectedCategory && styles.categoryOptionActive]}
+                onPress={() => {
+                  setSelectedCategory(null);
+                  setShowCategoryFilter(false);
+                }}
+              >
+                <Ionicons name="apps" size={20} color={!selectedCategory ? "#4CAF50" : "#6B6F45"} />
+                <Text style={[styles.categoryOptionText, !selectedCategory && styles.categoryOptionTextActive]}>
+                  Все задачи
+                </Text>
+              </TouchableOpacity>
+              
+              {TASK_CATEGORIES.map((category) => (
+                <TouchableOpacity
+                  key={category.name}
+                  style={[styles.categoryOption, selectedCategory === category.name && styles.categoryOptionActive]}
+                  onPress={() => {
+                    setSelectedCategory(category.name);
+                    setShowCategoryFilter(false);
+                  }}
+                >
+                  <Ionicons 
+                    name={category.icon as any} 
+                    size={20} 
+                    color={selectedCategory === category.name ? "#4CAF50" : category.color} 
+                  />
+                  <Text style={[
+                    styles.categoryOptionText,
+                    selectedCategory === category.name && styles.categoryOptionTextActive
+                  ]}>
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </LinearGradient>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Menu Modal */}
       <Modal
@@ -731,8 +855,46 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
   },
-  headerRight: {
+  filterButton: {
     width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  filterButtonGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  filterIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF5722',
+  },
+  activeFilterContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  activeFilter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+  },
+  activeFilterText: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
   searchContainer: {
     marginHorizontal: 20,
@@ -901,6 +1063,31 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: 'rgba(51, 51, 51, 0.6)',
   },
+  taskTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 6,
+  },
+  taskTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
+  },
+  taskTagText: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  moreTagsText: {
+    fontSize: 10,
+    color: '#6B6F45',
+    fontWeight: '500',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
   taskMeta: {
     flexDirection: "row",
     alignItems: "center",
@@ -999,6 +1186,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  categoryModal: {
+    width: '100%',
+    maxWidth: 300,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  categoryModalGradient: {
+    padding: 20,
+  },
+  categoryModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  categoryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    gap: 12,
+  },
+  categoryOptionActive: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  categoryOptionText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  categoryOptionTextActive: {
+    color: '#4CAF50',
+    fontWeight: '600',
   },
   menuOverlay: {
     flex: 1,

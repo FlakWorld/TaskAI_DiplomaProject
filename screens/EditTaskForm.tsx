@@ -11,7 +11,7 @@ import {
   Animated,
   ScrollView,
 } from "react-native";
-import { ScreenProps } from "../types";
+import { ScreenProps, TASK_CATEGORIES } from "../types";
 import { updateTask } from "../server/api";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -25,6 +25,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
   const [title, setTitle] = useState(task?.title || "");
   const [date, setDate] = useState(parseDate(task?.date));
   const [time, setTime] = useState(parseTime(task?.time));
+  const [selectedTags, setSelectedTags] = useState<string[]>(task?.tags || []);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -60,6 +61,14 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
     date.setHours(hours, minutes);
     return date;
   }
+
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter(t => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
 
   useEffect(() => {
     const loadToken = async () => {
@@ -124,6 +133,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
         date: formatDateToSend(date),
         time: formatTimeToSend(time),
         status: task?.status || "в прогрессе",
+        tags: selectedTags,
       };
 
       console.log('Data being sent:', updatedTask);
@@ -245,6 +255,38 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                   />
                 </View>
                 <Text style={styles.charCounter}>{title.length}/100</Text>
+              </View>
+
+              {/* Categories Section */}
+              <View style={styles.categoriesSection}>
+                <Text style={styles.sectionTitle}>Категории</Text>
+                <View style={styles.tagsGrid}>
+                  {TASK_CATEGORIES.map((category) => (
+                    <TouchableOpacity
+                      key={category.name}
+                      style={[
+                        styles.tagItem,
+                        selectedTags.includes(category.name) && {
+                          backgroundColor: category.color + '20',
+                          borderColor: category.color,
+                        }
+                      ]}
+                      onPress={() => toggleTag(category.name)}
+                    >
+                      <Ionicons 
+                        name={category.icon as any} 
+                        size={16} 
+                        color={selectedTags.includes(category.name) ? category.color : '#6B6F45'} 
+                      />
+                      <Text style={[
+                        styles.tagText,
+                        selectedTags.includes(category.name) && { color: category.color }
+                      ]}>
+                        {category.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               {/* Date & Time Section */}
@@ -535,6 +577,9 @@ const styles = StyleSheet.create({
   inputSection: {
     marginBottom: 30,
   },
+  categoriesSection: {
+    marginBottom: 30,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -574,6 +619,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(107, 111, 69, 0.6)',
     marginTop: 8,
+  },
+  tagsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 111, 69, 0.2)',
+    backgroundColor: 'rgba(107, 111, 69, 0.05)',
+    gap: 6,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B6F45',
   },
   dateTimeSection: {
     marginBottom: 30,

@@ -11,7 +11,7 @@ import {
   Animated,
   Platform,
 } from "react-native";
-import { ScreenProps } from "../types";
+import { ScreenProps, TASK_CATEGORIES } from "../types";
 import { getTaskById, updateTaskStatus, deleteTask } from "../server/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -25,6 +25,7 @@ type Task = {
   date: string;
   time: string;
   status: "в прогрессе" | "выполнено";
+  tags?: string[];
 };
 
 export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask">) {
@@ -62,7 +63,8 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
             title: "Новая задача",
             date: new Date().toISOString(),
             time: new Date().toISOString(),
-            status: "в прогрессе"
+            status: "в прогрессе",
+            tags: []
           });
           return;
         }
@@ -264,6 +266,33 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
 
               {/* Task Title */}
               <Text style={styles.taskTitle}>{task.title}</Text>
+
+              {/* Tags */}
+              {task.tags && task.tags.length > 0 && (
+                <View style={styles.tagsSection}>
+                  <Text style={styles.tagsLabel}>Категории:</Text>
+                  <View style={styles.tagsContainer}>
+                    {task.tags.map((tag) => {
+                      const category = TASK_CATEGORIES.find(c => c.name === tag);
+                      return (
+                        <View 
+                          key={tag} 
+                          style={[styles.taskTag, { backgroundColor: category?.color + '20' }]}
+                        >
+                          <Ionicons 
+                            name={category?.icon as any || 'pricetag'} 
+                            size={12} 
+                            color={category?.color || '#6B6F45'} 
+                          />
+                          <Text style={[styles.taskTagText, { color: category?.color || '#6B6F45' }]}>
+                            {tag}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
 
               {/* Task Details */}
               <View style={styles.detailsContainer}>
@@ -507,8 +536,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 25,
+    marginBottom: 20,
     lineHeight: 30,
+  },
+  tagsSection: {
+    marginBottom: 25,
+  },
+  tagsLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B6F45',
+    marginBottom: 8,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  taskTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  taskTagText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   detailsContainer: {
     gap: 20,

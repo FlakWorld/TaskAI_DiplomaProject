@@ -77,11 +77,11 @@ export const resendVerification = async (email) => {
 };
 
 // Операции с задачами
-export const createTask = async (title, date, time, status, token) => {
+export const createTask = async (title, date, time, status, tags, token) => {
   return makeRequest(
     "/tasks", 
     "POST", 
-    { title, date, time, status }, 
+    { title, date, time, status, tags }, 
     token
   );
 };

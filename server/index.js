@@ -82,6 +82,11 @@ const TaskSchema = new mongoose.Schema({
     enum: ["выполнено", "в прогрессе"],
     default: "в прогрессе"
   },
+  tags: [{
+    type: String,
+    trim: true,
+    lowercase: true
+  }], // Новое поле для тегов
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -508,12 +513,13 @@ app.post('/auth/microsoft', async (req, res) => {
 // Все остальные эндпоинты остаются без изменений...
 app.post("/tasks", authenticate, async (req, res) => {
   try {
-    const { title, date, time, status } = req.body;
+    const { title, date, time, status, tags } = req.body;
     const task = new Task({
       title,
       date,
       time,
       status: status || "в прогрессе",
+      tags: tags || [], // Добавляем теги
       userId: req.user.userId
     });
 
@@ -550,10 +556,10 @@ app.get("/tasks/:id", authenticate, async (req, res) => {
 
 app.put("/tasks/:id", authenticate, async (req, res) => {
   try {
-    const { title, date, time, status } = req.body;
+    const { title, date, time, status, tags } = req.body;
     
-    if (!title && !status) {
-      return res.status(400).json({ error: "Необходимо указать название или статус задачи" });
+    if (!title && !status && !tags) {
+      return res.status(400).json({ error: "Необходимо указать данные для обновления" });
     }
 
     const updates = {};
@@ -567,6 +573,7 @@ app.put("/tasks/:id", authenticate, async (req, res) => {
       }
       updates.status = status;
     }
+    if (tags !== undefined) updates.tags = tags; // Добавляем обновление тегов
 
     const task = await Task.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.userId },

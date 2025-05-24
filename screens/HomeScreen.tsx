@@ -12,6 +12,8 @@ import {
   RefreshControl,
   Platform,
   Linking,
+  Dimensions,
+  Animated,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getTasks, deleteTask } from "../server/api";
@@ -21,6 +23,9 @@ import { getSuggestedTask, saveTaskPattern, rejectTaskPattern } from "../service
 import { Image } from "react-native";
 import DinoImage from "../assets/dino.jpg";
 import PushNotification from "react-native-push-notification";
+import { LinearGradient } from 'react-native-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 type Task = {
   _id: string;
@@ -38,6 +43,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const [isMenuVisible, setMenuVisible] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [suggestedTask, setSuggestedTask] = useState<string | null>(null);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   // Инициализация push-уведомлений
   useEffect(() => {
@@ -87,20 +93,38 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
 
   // Предупреждение для Android 12+ (API 31+) о необходимости разрешения в настройках
   useEffect(() => {
-    if (Platform.OS === "android" && Platform.Version >= 31) {
-      Alert.alert(
-        "Важное уведомление",
-        "Для корректной работы точных уведомлений требуется разрешение на использование точных будильников в настройках устройства. " +
-          "Пожалуйста, убедитесь, что это разрешение предоставлено.",
-        [
-          {
-            text: "Открыть настройки",
-            onPress: () => Linking.openSettings(),
-          },
-          { text: "Отмена", style: "cancel" },
-        ]
-      );
-    }
+    const checkAndShowPermissionAlert = async () => {
+      if (Platform.OS === "android" && Platform.Version >= 31) {
+        // Проверяем, показывали ли уже это уведомление
+        const hasShownAlert = await AsyncStorage.getItem("hasShownPermissionAlert");
+        
+        if (!hasShownAlert) {
+          Alert.alert(
+            "Важное уведомление",
+            "Для корректной работы точных уведомлений требуется разрешение на использование точных будильников в настройках устройства. " +
+              "Пожалуйста, убедитесь, что это разрешение предоставлено.",
+            [
+              {
+                text: "Открыть настройки",
+                onPress: async () => {
+                  await AsyncStorage.setItem("hasShownPermissionAlert", "true");
+                  Linking.openSettings();
+                },
+              },
+              { 
+                text: "Понятно", 
+                style: "cancel",
+                onPress: async () => {
+                  await AsyncStorage.setItem("hasShownPermissionAlert", "true");
+                }
+              },
+            ]
+          );
+        }
+      }
+    };
+
+    checkAndShowPermissionAlert();
   }, []);
 
   // Форматирование времени и даты
@@ -124,6 +148,19 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     })();
   }, []);
 
+  // Анимация появления предложения ИИ
+  useEffect(() => {
+    if (suggestedTask) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      fadeAnim.setValue(0);
+    }
+  }, [suggestedTask, fadeAnim]);
+
   // Функция для создания уникального числового ID из строки
   const stringToNumericId = (str: string): number => {
     let hash = 0;
@@ -139,6 +176,15 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const scheduleNotifications = (tasks: Task[]) => {
     // Отменяем все существующие уведомления
     PushNotification.cancelAllLocalNotifications();
+
+    const now = new Date();
+    console.log("=== ОТЛАДКА ВРЕМЕНИ ===");
+    console.log(`Текущее время устройства: ${now}`);
+    console.log(`Текущее время (локальное): ${now.toLocaleString()}`);
+    console.log(`Часовой пояс: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+    console.log(`UTC время: ${now.toISOString()}`);
+    console.log(`Смещение часового пояса: ${now.getTimezoneOffset()} минут`);
+    console.log("========================");
 
     console.log("Планируем уведомления для задач:", tasks.length);
 
@@ -168,19 +214,20 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
 
           // Время уведомления - за 10 минут до задачи
           const notifyTime = new Date(taskDate.getTime() - 10 * 60 * 1000);
-          const now = new Date();
 
-          console.log(`Задача: ${task.title}`);
-          console.log(`Время задачи: ${taskDate}`);
-          console.log(`Время уведомления: ${notifyTime}`);
-          console.log(`Текущее время: ${now}`);
+          console.log(`--- Задача: ${task.title} ---`);
+          console.log(`Исходные данные: ${task.date} ${task.time}`);
+          console.log(`Время задачи: ${taskDate.toLocaleString()}`);
+          console.log(`Время уведомления: ${notifyTime.toLocaleString()}`);
+          console.log(`Текущее время: ${now.toLocaleString()}`);
+          console.log(`Разница с текущим временем: ${Math.round((notifyTime.getTime() - now.getTime()) / (1000 * 60))} минут`);
 
           if (notifyTime > now) {
             const numericId = stringToNumericId(task._id);
             
             PushNotification.localNotificationSchedule({
               channelId: "tasks-channel",
-              id: numericId.toString(), // Преобразуем в строку для совместимости
+              id: numericId.toString(),
               title: "Напоминание о задаче",
               message: `Уважаемый пользователь, через 10 минут начинается задача: "${task.title}"`,
               date: notifyTime,
@@ -198,9 +245,9 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               },
             });
 
-            console.log(`Уведомление запланировано для задачи "${task.title}" на ${notifyTime}`);
+            console.log(`✅ Уведомление запланировано для задачи "${task.title}" на ${notifyTime.toLocaleString()}`);
           } else {
-            console.log(`Время уведомления для задачи "${task.title}" уже прошло`);
+            console.log(`❌ Время уведомления для задачи "${task.title}" уже прошло (${Math.round((now.getTime() - notifyTime.getTime()) / (1000 * 60))} минут назад)`);
           }
         } catch (error) {
           console.warn(`Ошибка при планировании уведомления для задачи "${task.title}":`, error);
@@ -368,26 +415,74 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   });
 
   const renderTaskItem = ({ item }: { item: Task }) => (
-    <TouchableOpacity
-      style={[styles.task, item.status === "выполнено" && styles.taskCompleted]}
-      onPress={() => navigation.navigate("EditTask", { id: item._id })}
-    >
-      <View style={styles.taskContent}>
-        <Text style={styles.taskTitle}>{item.title}</Text>
-        <View style={styles.taskMeta}>
-          {item.date && <Text style={styles.taskDate}>{item.date}</Text>}
-          {item.time && <Text style={styles.taskTime}>{item.time}</Text>}
-          <Text
-            style={[styles.taskStatus, item.status === "выполнено" && styles.statusCompleted]}
-          >
-            {item.status}
-          </Text>
-        </View>
-      </View>
-      <TouchableOpacity onPress={() => removeTask(item._id)} style={styles.deleteButton}>
-        <Ionicons name="trash-outline" size={20} color="#ff4444" />
+    <View style={styles.taskAnimationContainer}>
+      <TouchableOpacity
+        style={[styles.task, item.status === "выполнено" && styles.taskCompleted]}
+        onPress={() => navigation.navigate("EditTask", { id: item._id })}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={item.status === "выполнено" ? ['#E8F5E8', '#F0F8F0'] : ['#FFFFFF', '#F8F9FA']}
+          style={styles.taskGradient}
+        >
+          <View style={styles.taskLeft}>
+            {/* Индикатор статуса */}
+            <View style={[
+              styles.statusIndicator,
+              item.status === "выполнено" ? styles.statusCompleted : styles.statusInProgress
+            ]} />
+            
+            <View style={styles.taskContent}>
+              <Text style={[
+                styles.taskTitle,
+                item.status === "выполнено" && styles.taskTitleCompleted
+              ]}>
+                {item.title}
+              </Text>
+              
+              <View style={styles.taskMeta}>
+                {item.date && (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="calendar-outline" size={12} color="#6B6F45" />
+                    <Text style={styles.taskDate}>{item.date}</Text>
+                  </View>
+                )}
+                {item.time && (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="time-outline" size={12} color="#6B6F45" />
+                    <Text style={styles.taskTime}>{item.time}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+          
+          <View style={styles.taskRight}>
+            {/* Статус бейдж */}
+            <View style={[
+              styles.statusBadge,
+              item.status === "выполнено" ? styles.statusBadgeCompleted : styles.statusBadgeProgress
+            ]}>
+              <Text style={[
+                styles.statusText,
+                item.status === "выполнено" && styles.statusTextCompleted
+              ]}>
+                {item.status === "выполнено" ? "Готово" : "В работе"}
+              </Text>
+            </View>
+            
+            {/* Кнопка удаления */}
+            <TouchableOpacity 
+              onPress={() => removeTask(item._id)} 
+              style={styles.deleteButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 
   if (loading && !refreshing) {
@@ -399,280 +494,562 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#8BC34A', '#6B6F45']}
+      style={styles.container}
+    >
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
-          <Ionicons name="menu" size={30} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>My Tasks</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#5C573E" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search tasks..."
-          placeholderTextColor="#5C573E"
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
-
-      {suggestedTask && (
-        <View
-          style={{
-            backgroundColor: "#fff",
-            borderRadius: 10,
-            padding: 16,
-            marginBottom: 16,
-          }}
+        <TouchableOpacity 
+          onPress={() => setMenuVisible(true)}
+          style={styles.menuButton}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-            <Image
-              source={DinoImage}
-              style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
-            />
-            <Text style={{ fontSize: 16, fontWeight: "bold" }}>ИИ предлагает задачу:</Text>
-          </View>
-          <Text style={{ fontSize: 16, marginBottom: 12 }}>{suggestedTask}</Text>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <TouchableOpacity
-              style={{ backgroundColor: "#D4E157", padding: 10, borderRadius: 8 }}
-              onPress={createSuggestedTask}
-            >
-              <Text style={{ fontWeight: "bold" }}>Создать</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{ backgroundColor: "#EF5350", padding: 10, borderRadius: 8 }}
-              onPress={async () => {
-                await rejectTaskPattern(suggestedTask || "");
-                setSuggestedTask(null);
-              }}
-            >
-              <Text style={{ fontWeight: "bold", color: "#fff" }}>Отклонить</Text>
-            </TouchableOpacity>
-          </View>
+          <LinearGradient
+            colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+            style={styles.menuButtonGradient}
+          >
+            <Ionicons name="menu" size={24} color="#FFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>Мои Задачи</Text>
+          <Text style={styles.tasksCount}>{tasks.length} задач</Text>
         </View>
+        
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* Search */}
+      <View style={styles.searchContainer}>
+        <LinearGradient
+          colors={['#FFFFFF', '#F8F9FA']}
+          style={styles.searchGradient}
+        >
+          <Ionicons name="search" size={20} color="#6B6F45" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Поиск задач..."
+            placeholderTextColor="rgba(107, 111, 69, 0.6)"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search ? (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={20} color="#6B6F45" />
+            </TouchableOpacity>
+          ) : null}
+        </LinearGradient>
+      </View>
+
+      {/* AI Suggestion */}
+      {suggestedTask && (
+        <Animated.View style={[styles.suggestionContainer, { opacity: fadeAnim }]}>
+          <LinearGradient
+            colors={['#FFF', '#F8F9FA']}
+            style={styles.suggestionGradient}
+          >
+            <View style={styles.suggestionHeader}>
+              <View style={styles.aiIcon}>
+                <Image
+                  source={DinoImage}
+                  style={styles.aiImage}
+                />
+              </View>
+              <View style={styles.suggestionTitleContainer}>
+                <Text style={styles.suggestionTitle}>ИИ предлагает:</Text>
+                <Text style={styles.suggestionSubtitle}>Основано на ваших привычках</Text>
+              </View>
+            </View>
+            
+            <Text style={styles.suggestionText}>{suggestedTask}</Text>
+            
+            <View style={styles.suggestionActions}>
+              <TouchableOpacity
+                style={styles.acceptButton}
+                onPress={createSuggestedTask}
+              >
+                <Ionicons name="checkmark" size={16} color="#FFF" />
+                <Text style={styles.acceptButtonText}>Создать</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={async () => {
+                  await rejectTaskPattern(suggestedTask || "");
+                  setSuggestedTask(null);
+                }}
+              >
+                <Ionicons name="close" size={16} color="#FF6B6B" />
+                <Text style={styles.rejectButtonText}>Отклонить</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </Animated.View>
       )}
 
+      {/* Tasks List */}
       <FlatList
         data={sortedTasks}
-        keyExtractor={(item) => item._id}
+        keyExtractor={item => item._id}
         renderItem={renderTaskItem}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={["#fff"]}
-            tintColor="#fff"
+            colors={["#FFF"]}
+            tintColor="#FFF"
           />
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>{search ? "No matching tasks found" : "No tasks yet"}</Text>
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="clipboard-outline" size={60} color="rgba(255,255,255,0.6)" />
+            </View>
+            <Text style={styles.emptyTitle}>
+              {search ? "Ничего не найдено" : "Пока нет задач"}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {search ? "Попробуйте изменить поисковый запрос" : "Создайте свою первую задачу"}
+            </Text>
+          </View>
         }
+        showsVerticalScrollIndicator={false}
       />
 
+      {/* Add Button */}
       <TouchableOpacity
-        onPress={() => {
-          // Тестовое уведомление
-          PushNotification.localNotification({
-            channelId: "tasks-channel",
-            title: "Тестовое уведомление",
-            message: "Если вы видите это, уведомления работают!",
-            playSound: true,
-            soundName: "default",
-            vibrate: true,
-          });
-        }}
-        style={{ padding: 20, backgroundColor: "#4CAF50", margin: 10, borderRadius: 8 }}
+        style={styles.addButton}
+        onPress={() => navigation.navigate("Task", { id: undefined })}
       >
-        <Text style={{ color: "#fff", textAlign: "center" }}>Показать тестовое уведомление</Text>
+        <LinearGradient
+          colors={['#FFF', '#F8F9FA']}
+          style={styles.addButtonGradient}
+        >
+          <Ionicons name="add" size={24} color="#6B6F45" />
+          <Text style={styles.addButtonText}>Новая задача</Text>
+        </LinearGradient>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate("Task", { id: undefined })}>
-        <Ionicons name="add" size={24} color="#5C573E" />
-        <Text style={styles.addButtonText}>New Task</Text>
-      </TouchableOpacity>
-
-      <Modal transparent visible={isMenuVisible} onRequestClose={() => setMenuVisible(false)}>
-        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
+      {/* Menu Modal */}
+      <Modal
+        transparent={true}
+        visible={isMenuVisible}
+        onRequestClose={() => setMenuVisible(false)}
+        animationType="fade"
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setMenuVisible(false)}
+        >
           <View style={styles.menu}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                navigation.navigate("Profile");
-              }}
+            <LinearGradient
+              colors={['#FFF', '#F8F9FA']}
+              style={styles.menuGradient}
             >
-              <Ionicons name="person-outline" size={20} style={styles.menuIcon} />
-              <Text style={styles.menuText}>Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                handleLogout();
-              }}
-            >
-              <Ionicons name="log-out-outline" size={20} style={[styles.menuIcon, styles.logoutIcon]} />
-              <Text style={[styles.menuText, styles.logoutText]}>Logout</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuVisible(false);
+                  navigation.navigate('Profile');
+                }}
+              >
+                <View style={styles.menuIconContainer}>
+                  <Ionicons name="person-outline" size={20} color="#6B6F45" />
+                </View>
+                <Text style={styles.menuText}>Профиль</Text>
+                <Ionicons name="chevron-forward" size={16} color="#6B6F45" />
+              </TouchableOpacity>
+              
+              <View style={styles.menuDivider} />
+              
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuVisible(false);
+                  handleLogout();
+                }}
+              >
+                <View style={[styles.menuIconContainer, styles.logoutIconContainer]}>
+                  <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
+                </View>
+                <Text style={[styles.menuText, styles.logoutText]}>Выйти</Text>
+                <Ionicons name="chevron-forward" size={16} color="#FF6B6B" />
+              </TouchableOpacity>
+            </LinearGradient>
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#6B6F45",
-    padding: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#6B6F45",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
-    marginTop: 10,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: 20,
   },
   menuButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  menuButtonGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleContainer: {
+    alignItems: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
-    color: "#fff",
-    marginLeft: 16,
+    color: "#FFF",
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  tasksCount: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  headerRight: {
+    width: 44,
   },
   searchContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 15,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  searchGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E9D8A6",
-    borderRadius: 10,
     paddingHorizontal: 16,
-    marginBottom: 20,
+    paddingVertical: 12,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    color: "#333",
     fontSize: 16,
+    color: "#333",
   },
-  listContent: {
-    paddingBottom: 20,
+  suggestionContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  task: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#F5F5F5",
-    padding: 16,
-    borderRadius: 10,
+  suggestionGradient: {
+    padding: 20,
+  },
+  suggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
   },
+  aiIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  aiImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  suggestionTitleContainer: {
+    flex: 1,
+  },
+  suggestionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#6B6F45',
+  },
+  suggestionSubtitle: {
+    fontSize: 12,
+    color: 'rgba(107, 111, 69, 0.6)',
+    marginTop: 2,
+  },
+  suggestionText: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 16,
+    lineHeight: 22,
+  },
+  suggestionActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  acceptButton: {
+    flex: 1,
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  acceptButtonText: {
+    color: '#FFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  rejectButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+    gap: 6,
+  },
+  rejectButtonText: {
+    color: '#FF6B6B',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  taskAnimationContainer: {
+    marginBottom: 12,
+  },
+  task: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   taskCompleted: {
-    backgroundColor: "#D8E9C6",
     opacity: 0.8,
+  },
+  taskGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    minHeight: 80,
+  },
+  taskLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    width: 4,
+    height: 50,
+    borderRadius: 2,
+    marginRight: 12,
+  },
+  statusInProgress: {
+    backgroundColor: '#FF9800',
+  },
+  statusCompleted: {
+    backgroundColor: '#4CAF50',
   },
   taskContent: {
     flex: 1,
   },
   taskTitle: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
     color: "#333",
-    marginBottom: 4,
+    marginBottom: 6,
+    lineHeight: 20,
+  },
+  taskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: 'rgba(51, 51, 51, 0.6)',
   },
   taskMeta: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   taskDate: {
     fontSize: 12,
-    color: "#666",
-    marginRight: 8,
+    color: "#6B6F45",
+    fontWeight: '500',
   },
   taskTime: {
     fontSize: 12,
-    color: "#666",
-    marginRight: 12,
+    color: "#6B6F45",
+    fontWeight: '500',
   },
-  taskStatus: {
+  taskRight: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  statusBadgeProgress: {
+    backgroundColor: 'rgba(255, 152, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 152, 0, 0.3)',
+  },
+  statusBadgeCompleted: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  statusText: {
     fontSize: 12,
-    color: "#666",
-    textTransform: "capitalize",
+    fontWeight: '600',
+    color: '#FF9800',
   },
-  statusCompleted: {
-    color: "#4CAF50",
-    fontWeight: "bold",
+  statusTextCompleted: {
+    color: '#4CAF50',
   },
   deleteButton: {
     padding: 8,
-    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
   },
   addButton: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  addButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E9D8A6",
-    padding: 16,
-    borderRadius: 10,
-    marginTop: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 8,
   },
   addButtonText: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#5C573E",
-    marginLeft: 8,
+    color: "#6B6F45",
   },
-  emptyText: {
-    color: "#fff",
-    textAlign: "center",
-    marginTop: 40,
-    fontSize: 16,
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   menuOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-start",
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 100 : 80,
   },
   menu: {
-    backgroundColor: "#fff",
-    width: 200,
-    borderRadius: 10,
-    marginLeft: 16,
+    marginLeft: 20,
+    marginRight: 60,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  menuGradient: {
     paddingVertical: 8,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 12,
   },
-  menuIcon: {
-    marginRight: 12,
-    color: "#333",
+  menuIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoutIconContainer: {
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
   },
   menuText: {
+    flex: 1,
     fontSize: 16,
     color: "#333",
-  },
-  logoutIcon: {
-    color: "#ff4444",
+    fontWeight: '500',
   },
   logoutText: {
-    color: "#ff4444",
+    color: "#FF6B6B",
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    marginHorizontal: 20,
   },
 });

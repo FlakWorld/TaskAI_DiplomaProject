@@ -8,7 +8,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Dimensions,
+  ScrollView
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
@@ -17,6 +19,9 @@ import { login, microsoftAuth } from "../server/api";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { authorize, AuthConfiguration } from 'react-native-app-auth';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { LinearGradient } from 'react-native-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
@@ -94,17 +99,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setGoogleLoading(false);
     }
-  };
-
-
-  const googleConfig: AuthConfiguration = {
-    issuer: 'https://accounts.google.com',
-    clientId: '221855869276-a3cm74t08419p5c2mvn2q2o6cm072dkh.apps.googleusercontent.com',  // замените на свой
-    redirectUrl: Platform.OS === 'ios' 
-      ? 'com.taskai:/oauthredirect'  // ваша схема + oauthredirect
-      : 'com.taskai:/oauthredirect',
-    scopes: ['openid', 'profile', 'email'],
-    additionalParameters: {},
   };
 
   const microsoftConfig: AuthConfiguration = {
@@ -240,167 +234,275 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <LinearGradient
+      colors={['#8BC34A', '#6B6F45', '#4A5D23']}
       style={styles.container}
+      start={{x: 0, y: 0}}
+      end={{x: 1, y: 1}}
     >
-      <View style={styles.content}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.navigate("Register")}
+      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardView}
         >
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
+          {/* Декоративные элементы */}
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
 
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Please sign in to continue</Text>
+          <View style={styles.content}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>С возвращением!</Text>
+              <Text style={styles.subtitle}>Войдите в свой аккаунт</Text>
+            </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your email"
-            placeholderTextColor="#A0A0A0"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!loading && !microsoftLoading}
-          />
-        </View>
+            <View style={styles.formContainer}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="mail-outline" size={20} color="#6B6F45" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Введите ваш email"
+                    placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    editable={!loading && !microsoftLoading && !googleLoading}
+                  />
+                </View>
+              </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordInput}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Enter your password"
-              placeholderTextColor="#A0A0A0"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={secureEntry}
-              editable={!loading && !microsoftLoading}
-            />
-            <TouchableOpacity 
-              onPress={() => setSecureEntry(!secureEntry)}
-              style={styles.eyeIcon}
-              disabled={loading || microsoftLoading}
-            >
-              <Ionicons 
-                name={secureEntry ? "eye-off" : "eye"} 
-                size={20} 
-                color="#5C573E" 
-              />
-            </TouchableOpacity>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Пароль</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#6B6F45" style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Введите ваш пароль"
+                    placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={secureEntry}
+                    editable={!loading && !microsoftLoading && !googleLoading}
+                  />
+                  <TouchableOpacity 
+                    onPress={() => setSecureEntry(!secureEntry)}
+                    style={styles.eyeIcon}
+                    disabled={loading || microsoftLoading || googleLoading}
+                  >
+                    <Ionicons 
+                      name={secureEntry ? "eye-off" : "eye"} 
+                      size={20} 
+                      color="#6B6F45" 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.button, (loading || microsoftLoading || googleLoading) && styles.disabledButton]} 
+                onPress={handleLogin}
+                disabled={loading || microsoftLoading || googleLoading}
+              >
+                <LinearGradient
+                  colors={['#FFF', '#F8F8F8']}
+                  style={styles.buttonGradient}
+                  start={{x: 0, y: 0}}
+                  end={{x: 0, y: 1}}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#6B6F45" />
+                  ) : (
+                    <Text style={styles.buttonText}>Войти</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>или</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.socialButton, (loading || microsoftLoading || googleLoading) && styles.disabledButton]}
+                onPress={handleMicrosoftLogin}
+                disabled={loading || microsoftLoading || googleLoading}
+              >
+                <View style={styles.socialButtonContent}>
+                  <View style={styles.socialIcon}>
+                    <Text style={styles.socialIconText}>Ⓜ</Text>
+                  </View>
+                  {microsoftLoading ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.socialButtonText}>Продолжить с Microsoft</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.socialButton, styles.googleButton, (loading || microsoftLoading || googleLoading) && styles.disabledButton]} 
+                onPress={signInWithGoogle} 
+                disabled={googleLoading || loading || microsoftLoading}
+              >
+                <View style={styles.socialButtonContent}>
+                  <View style={[styles.socialIcon, styles.googleIcon]}>
+                    <Text style={styles.socialIconText}>G</Text>
+                  </View>
+                  {googleLoading ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.socialButtonText}>Продолжить с Google</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.registerLink}
+                onPress={() => navigation.navigate("Register")}
+                disabled={loading || microsoftLoading || googleLoading}
+              >
+                <Text style={styles.registerText}>
+                  Нет аккаунта? <Text style={styles.registerHighlight}>Зарегистрироваться</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.button, (loading || microsoftLoading) && styles.disabledButton]} 
-          onPress={handleLogin}
-          disabled={loading || microsoftLoading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#5C573E" />
-          ) : (
-            <Text style={styles.buttonText}>Sign In</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.button, (loading || microsoftLoading) && styles.disabledButton]}
-          onPress={handleMicrosoftLogin}
-          disabled={loading || microsoftLoading}
-        >
-          {microsoftLoading ? (
-            <ActivityIndicator color="#5C573E" />
-          ) : (
-            <Text style={styles.buttonText}>Sign in with Microsoft</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.button} onPress={signInWithGoogle} disabled={googleLoading}>
-            {googleLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Войти через Google</Text>
-            )}
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.registerLink}
-          onPress={() => navigation.navigate("Register")}
-          disabled={loading || microsoftLoading}
-        >
-          <Text style={styles.registerText}>
-            Don't have an account? <Text style={styles.registerHighlight}>Register</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </ScrollView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#6B6F45",
   },
-  content: {
+  scrollContainer: {
+    flexGrow: 1,
+  },
+  keyboardView: {
     flex: 1,
-    paddingHorizontal: 25,
-    justifyContent: "center",
+  },
+  decorativeCircle1: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    top: -30,
+    right: -30,
+  },
+  decorativeCircle2: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    bottom: 100,
+    left: -20,
   },
   backButton: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 50 : 30,
+    top: Platform.OS === "ios" ? 50 : 40,
     left: 20,
     zIndex: 1,
   },
+  backButtonContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 30,
+    justifyContent: "center",
+    paddingTop: 80,
+  },
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "bold",
-    color: "white",
-    marginBottom: 8,
+    color: "#FFF",
     textAlign: "center",
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: "#E9D8A6",
-    marginBottom: 30,
+    color: "rgba(255, 255, 255, 0.8)",
     textAlign: "center",
+    marginTop: 8,
+    fontWeight: '300',
+  },
+  formContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 25,
+    padding: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
   },
   inputContainer: {
     marginBottom: 20,
   },
   label: {
-    color: "white",
+    color: "#6B6F45",
     marginBottom: 8,
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 111, 69, 0.2)',
+  },
+  inputIcon: {
+    marginLeft: 15,
+    marginRight: 10,
   },
   input: {
-    backgroundColor: "#E9D8A6",
-    padding: 15,
-    borderRadius: 10,
+    flex: 1,
+    paddingVertical: 15,
+    paddingRight: 15,
     fontSize: 16,
     color: "#333",
-  },
-  passwordInput: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E9D8A6",
-    borderRadius: 10,
   },
   eyeIcon: {
     padding: 15,
   },
   button: {
-    backgroundColor: "#E9D8A6",
-    padding: 16,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 20,
+    borderRadius: 15,
+    marginTop: 10,
+    overflow: 'hidden',
+    shadowColor: '#6B6F45',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  buttonGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
   },
   disabledButton: {
     opacity: 0.6,
@@ -408,17 +510,71 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#5C573E",
+    color: "#6B6F45",
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 25,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(107, 111, 69, 0.3)',
+  },
+  dividerText: {
+    marginHorizontal: 15,
+    color: 'rgba(107, 111, 69, 0.6)',
+    fontSize: 14,
+  },
+  socialButton: {
+    borderRadius: 15,
+    marginBottom: 15,
+    overflow: 'hidden',
+    backgroundColor: '#4285F4',
+  },
+  googleButton: {
+    backgroundColor: '#DB4437',
+  },
+  socialButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  socialIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  googleIcon: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  socialIconText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  socialButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   registerLink: {
     marginTop: 20,
     alignItems: "center",
   },
   registerText: {
-    color: "white",
+    color: "rgba(107, 111, 69, 0.8)",
+    fontSize: 14,
   },
   registerHighlight: {
-    color: "#E9D8A6",
+    color: "#6B6F45",
     fontWeight: "bold",
   },
 });

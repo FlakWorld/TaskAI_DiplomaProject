@@ -1,0 +1,795 @@
+// screens/AIChatScreen.tsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  Animated,
+  Dimensions,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'react-native-linear-gradient';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import ChatGPTService from '../services/chatGPTService';
+import { getTasks } from '../server/api'; // Добавляем импорт API
+import { ScreenProps } from '../types';
+import { Image } from 'react-native';
+import DinoImage from '../assets/dino.jpg';
+
+const { width } = Dimensions.get('window');
+
+type Task = {
+  _id: string;
+  title: string;
+  date?: string;
+  time?: string;
+  status: "в прогрессе" | "выполнено";
+  tags?: string[];
+};
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+  hasTaskSuggestion?: boolean;
+}
+
+const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [userName, setUserName] = useState('Пользователь');
+  const [token, setToken] = useState<string | null>(null); // Добавляем состояние для токена
+  const [chatService] = useState(() => new ChatGPTService());
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  // Форматирование даты и времени для отображения (как в HomeScreen)
+  const formatDisplayDate = (dateString?: string) => {
+    if (!dateString) return "";
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) return dateString;
+
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "";
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    } catch {
+      return "";
+    }
+  };
+
+  const formatDisplayTime = (timeString?: string) => {
+    if (!timeString) return "";
+    if (/^\d{2}:\d{2}$/.test(timeString)) return timeString;
+
+    try {
+      const timePart = timeString.includes("T") ? timeString.split("T")[1] : timeString;
+      const time = new Date(`1970-01-01T${timePart}Z`);
+      if (isNaN(time.getTime())) return "";
+      const hours = String(time.getHours()).padStart(2, "0");
+      const minutes = String(time.getMinutes()).padStart(2, "0");
+      return `${hours}:${minutes}`;
+    } catch {
+      return "";
+    }
+  };
+
+  const loadTasks = useCallback(async (userToken: string) => {
+    try {
+      const data = await getTasks(userToken);
+
+      if (!Array.isArray(data)) {
+        console.error("Invalid tasks data format");
+        return;
+      }
+
+      // Форматируем задачи как в HomeScreen
+      const formattedTasks = data.map((task: any) => ({
+        ...task,
+        date: formatDisplayDate(task.date),
+        time: formatDisplayTime(task.time),
+        status: task.status || "в прогрессе",
+        tags: task.tags || [],
+      }));
+
+      setTasks(formattedTasks);
+    } catch (error) {
+      console.error('Ошибка загрузки задач:', error);
+      // При ошибке загрузки задач не показываем alert, просто логируем
+    }
+  }, []);
+
+  // Принудительное обновление задач
+  const refreshTasks = useCallback(async () => {
+    if (token) {
+      await loadTasks(token);
+    }
+  }, [token, loadTasks]);
+
+  const loadUserData = async () => {
+    try {
+      const userData = await AsyncStorage.getItem("user");
+      if (userData) {
+        const user = JSON.parse(userData);
+        setUserName(user.name || 'Пользователь');
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки данных пользователя:', error);
+    }
+  };
+
+  const addWelcomeMessage = () => {
+    const welcomeMessage: ChatMessage = {
+      id: 'welcome',
+      text: `Привет${userName !== 'Пользователь' ? `, ${userName}` : ''}! 👋\n\nЯ твой AI помощник по задачам. Могу помочь с:\n\n🔍 Анализом продуктивности\n📅 Планированием дня\n✨ Созданием новых задач\n💪 Мотивацией и поддержкой\n📊 Изучением твоих паттернов\n\nО чем хочешь поговорить?`,
+      isUser: false,
+      timestamp: new Date(),
+    };
+    setMessages([welcomeMessage]);
+  };
+
+  useEffect(() => {
+    const initializeChat = async () => {
+      await chatService.initialize();
+      await loadUserData();
+      
+      // Загружаем токен и задачи
+      const storedToken = await AsyncStorage.getItem("token");
+      if (storedToken) {
+        setToken(storedToken);
+        await loadTasks(storedToken);
+      }
+      
+      // Добавляем приветственное сообщение после загрузки данных
+      setTimeout(() => {
+        addWelcomeMessage();
+      }, 100);
+      
+      // Анимация появления
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    initializeChat();
+  }, [fadeAnim, chatService, loadTasks]);
+
+  // Обновляем задачи при фокусе на экране
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (token) {
+        loadTasks(token);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, token, loadTasks]);
+
+  const addMessage = (text: string, isUser: boolean, hasTaskSuggestion: boolean = false) => {
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text,
+      isUser,
+      timestamp: new Date(),
+      hasTaskSuggestion,
+    };
+    setMessages(prev => [...prev, newMessage]);
+  };
+
+  const sendMessage = async () => {
+    if (!inputText.trim()) return;
+
+    // Проверяем готовность сервиса
+    if (!chatService.isReady()) {
+      Alert.alert(
+        'Настройка требуется',
+        'Для работы AI помощника необходимо настроить API ключ OpenAI. Обратитесь к разработчику.',
+        [{ text: 'Понятно' }]
+      );
+      return;
+    }
+
+    const userMessage = inputText.trim();
+    setInputText('');
+    setIsLoading(true);
+
+    // Добавляем сообщение пользователя
+    addMessage(userMessage, true);
+
+    // Обновляем задачи перед отправкой для актуальных данных
+    if (token) {
+      await loadTasks(token);
+    }
+
+    try {
+      const response = await chatService.getChatResponse({
+        userMessage,
+        userContext: {
+          tasks,
+          userName,
+          currentDate: new Date().toLocaleDateString('ru-RU'),
+        },
+      });
+
+      // Добавляем ответ AI
+      const hasTaskSuggestion = response.suggestedActions?.some(action => action.type === 'create_task') || false;
+      addMessage(response.message, false, hasTaskSuggestion);
+
+      // Обрабатываем предложенные действия
+      if (response.suggestedActions) {
+        handleSuggestedActions(response.suggestedActions);
+      }
+
+    } catch (error: any) {
+      console.error('Chat Error:', error);
+      
+      // Показываем конкретное сообщение об ошибке
+      const errorMessage = error.message || 'Извини, произошла ошибка. Проверь интернет соединение и попробуй еще раз. 😔';
+      addMessage(errorMessage, false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSuggestedActions = (actions: any[]) => {
+    actions.forEach(action => {
+      if (action.type === 'create_task') {
+        setTimeout(() => {
+          Alert.alert(
+            'Создать новую задачу? ✨',
+            'AI предлагает создать задачу на основе нашего разговора. Хотите перейти к созданию?',
+            [
+              { text: 'Нет', style: 'cancel' },
+              { 
+                text: 'Да, создать!', 
+                onPress: () => {
+                  // После создания задачи, обновляем список при возврате
+                  const unsubscribe = navigation.addListener('focus', () => {
+                    if (token) {
+                      loadTasks(token);
+                    }
+                    unsubscribe();
+                  });
+                  navigation.navigate('Task', { id: undefined });
+                }
+              },
+            ]
+          );
+        }, 1000);
+      }
+    });
+  };
+
+  const sendQuickMessage = async (message: string) => {
+    setInputText(message);
+    setTimeout(() => {
+      sendMessage();
+    }, 100);
+  };
+
+  const handleAnalysisAction = async (type: string) => {
+    // Проверяем готовность сервиса
+    if (!chatService.isReady()) {
+      Alert.alert(
+        'Настройка требуется',
+        'Для работы AI помощника необходимо настроить API ключ OpenAI. Обратитесь к разработчику.',
+        [{ text: 'Понятно' }]
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // Обновляем задачи перед анализом для актуальных данных
+    if (token) {
+      await loadTasks(token);
+    }
+    
+    try {
+      let response = '';
+      
+      switch (type) {
+        case 'productivity':
+          response = await chatService.analyzeProductivity(tasks);
+          break;
+        case 'daily_plan':
+          response = await chatService.suggestDailyPlan(tasks);
+          break;
+        case 'motivation':
+          response = await chatService.getMotivationalMessage(tasks);
+          break;
+        case 'patterns':
+          response = await chatService.analyzeTaskPatterns(tasks);
+          break;
+        case 'weekly':
+          response = await chatService.getWeeklyInsights(tasks);
+          break;
+        default:
+          response = 'Функция пока не реализована';
+      }
+      
+      addMessage(response, false);
+    } catch (error: any) {
+      console.error('Analysis Error:', error);
+      
+      // Показываем конкретное сообщение об ошибке
+      const errorMessage = error.message || 'Произошла ошибка при анализе. Попробуйте еще раз. 😔';
+      addMessage(errorMessage, false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, [messages]);
+
+  const getTasksStats = () => {
+    const completed = tasks.filter(t => t.status === 'выполнено').length;
+    const inProgress = tasks.filter(t => t.status === 'в прогрессе').length;
+    const today = new Date();
+    const todayStr = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
+    const todayTasks = tasks.filter(t => t.date === todayStr).length;
+    
+    return { total: tasks.length, completed, inProgress, todayTasks };
+  };
+
+  const quickActions = [
+    { title: 'Как дела с задачами?', icon: 'checkmark-circle-outline', action: () => sendQuickMessage('Как дела с моими задачами?') },
+    { title: 'Анализ продуктивности', icon: 'analytics-outline', action: () => handleAnalysisAction('productivity') },
+    { title: 'Спланируй день', icon: 'calendar-outline', action: () => handleAnalysisAction('daily_plan') },
+    { title: 'Дай мотивацию!', icon: 'flash-outline', action: () => handleAnalysisAction('motivation') },
+    { title: 'Мои паттерны', icon: 'trending-up-outline', action: () => handleAnalysisAction('patterns') },
+    { title: 'Недельный отчет', icon: 'bar-chart-outline', action: () => handleAnalysisAction('weekly') },
+  ];
+
+  const stats = getTasksStats();
+
+  return (
+    <LinearGradient
+      colors={['#8BC34A', '#6B6F45']}
+      style={styles.container}
+    >
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <LinearGradient
+              colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+              style={styles.backButtonGradient}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <View style={styles.headerContent}>
+            <View style={styles.titleRow}>
+              <View style={styles.aiAvatar}>
+                <Image source={DinoImage} style={styles.aiAvatarImage} />
+              </View>
+              <View style={styles.titleContainer}>
+                <Text style={styles.headerTitle}>AI Помощник</Text>
+                <Text style={styles.headerSubtitle}>
+                  {stats.total} задач • {stats.completed} выполнено • {stats.todayTasks} на сегодня
+                </Text>
+              </View>
+              
+              {/* Кнопка обновления задач */}
+              <TouchableOpacity
+                style={styles.refreshButton}
+                onPress={refreshTasks}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                  style={styles.refreshButtonGradient}
+                >
+                  <Ionicons name="refresh" size={20} color="#FFF" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Chat Container */}
+        <View style={styles.chatWrapper}>
+          <LinearGradient
+            colors={['#FFFFFF', '#F8F9FA']}
+            style={styles.chatContainer}
+          >
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.messagesContainer}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.messagesContent}
+            >
+              {messages.map((message) => (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.messageContainer,
+                    message.isUser ? styles.userMessage : styles.aiMessage,
+                  ]}
+                >
+                  <LinearGradient
+                    colors={message.isUser 
+                      ? ['#8BC34A', '#6B6F45'] 
+                      : ['#FFFFFF', '#F8F9FA']
+                    }
+                    style={styles.messageGradient}
+                  >
+                    <Text
+                      style={[
+                        styles.messageText,
+                        { color: message.isUser ? '#FFF' : '#333' },
+                      ]}
+                    >
+                      {message.text}
+                    </Text>
+                    
+                    {message.hasTaskSuggestion && (
+                      <TouchableOpacity
+                        style={styles.taskSuggestionButton}
+                        onPress={() => navigation.navigate('Task', { id: undefined })}
+                      >
+                        <Ionicons name="add-circle" size={16} color="#FFF" />
+                        <Text style={styles.taskSuggestionText}>Создать задачу</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    <Text
+                      style={[
+                        styles.timestamp,
+                        { color: message.isUser ? 'rgba(255,255,255,0.7)' : '#999' },
+                      ]}
+                    >
+                      {message.timestamp.toLocaleTimeString('ru-RU', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </LinearGradient>
+                </View>
+              ))}
+
+              {isLoading && (
+                <View style={styles.loadingContainer}>
+                  <LinearGradient
+                    colors={['#FFFFFF', '#F8F9FA']}
+                    style={styles.loadingGradient}
+                  >
+                    <View style={styles.aiAvatar}>
+                      <Image source={DinoImage} style={styles.aiAvatarImage} />
+                    </View>
+                    <View style={styles.loadingContent}>
+                      <ActivityIndicator size="small" color="#6B6F45" />
+                      <Text style={styles.loadingText}>AI думает...</Text>
+                    </View>
+                  </LinearGradient>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Quick Actions для новых пользователей */}
+            {messages.length <= 1 && (
+              <View style={styles.quickActionsSection}>
+                <Text style={styles.quickActionsTitle}>Быстрые действия:</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.quickActionsScroll}
+                >
+                  {quickActions.map((action, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.quickActionButton}
+                      onPress={action.action}
+                    >
+                      <LinearGradient
+                        colors={['rgba(139, 195, 74, 0.1)', 'rgba(107, 111, 69, 0.1)']}
+                        style={styles.quickActionGradient}
+                      >
+                        <Ionicons name={action.icon as any} size={20} color="#6B6F45" />
+                        <Text style={styles.quickActionText}>{action.title}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Input Container */}
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <LinearGradient
+                  colors={['#F8F9FA', '#FFFFFF']}
+                  style={styles.inputGradient}
+                >
+                  <TextInput
+                    style={styles.textInput}
+                    value={inputText}
+                    onChangeText={setInputText}
+                    placeholder="Спроси что-нибудь о своих задачах..."
+                    placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                    multiline
+                    maxLength={500}
+                    returnKeyType="send"
+                    onSubmitEditing={sendMessage}
+                  />
+                  <TouchableOpacity
+                    style={[styles.sendButton, { opacity: inputText.trim() ? 1 : 0.5 }]}
+                    onPress={sendMessage}
+                    disabled={!inputText.trim() || isLoading}
+                  >
+                    <LinearGradient
+                      colors={['#8BC34A', '#6B6F45']}
+                      style={styles.sendButtonGradient}
+                    >
+                      <Ionicons name="send" size={20} color="#FFF" />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </LinearGradient>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+      </Animated.View>
+    </LinearGradient>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: 20,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    marginRight: 16,
+  },
+  backButtonGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerContent: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  aiAvatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  titleContainer: {
+    flex: 1,
+  },
+  refreshButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginLeft: 8,
+  },
+  refreshButtonGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  chatWrapper: {
+    flex: 1,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  chatContainer: {
+    flex: 1,
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: 16,
+    paddingBottom: 20,
+  },
+  messageContainer: {
+    marginVertical: 6,
+    maxWidth: '85%',
+  },
+  userMessage: {
+    alignSelf: 'flex-end',
+  },
+  aiMessage: {
+    alignSelf: 'flex-start',
+  },
+  messageGradient: {
+    padding: 14,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  taskSuggestionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  taskSuggestionText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  timestamp: {
+    fontSize: 11,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  loadingContainer: {
+    alignSelf: 'flex-start',
+    marginVertical: 6,
+    borderRadius: 16,
+    overflow: 'hidden',
+    maxWidth: '85%',
+  },
+  loadingGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+  },
+  loadingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    color: '#6B6F45',
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  quickActionsSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(107, 111, 69, 0.1)',
+  },
+  quickActionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B6F45',
+    marginBottom: 12,
+  },
+  quickActionsScroll: {
+    flexDirection: 'row',
+  },
+  quickActionButton: {
+    marginRight: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  quickActionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 111, 69, 0.2)',
+  },
+  quickActionText: {
+    color: '#6B6F45',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  inputContainer: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(107, 111, 69, 0.1)',
+  },
+  inputWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  inputGradient: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 111, 69, 0.2)',
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    maxHeight: 100,
+    marginRight: 12,
+  },
+  sendButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  sendButtonGradient: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+
+export default AIChatScreen;

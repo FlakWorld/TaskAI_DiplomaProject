@@ -12,6 +12,7 @@ import EditTaskForm from "./screens/EditTaskForm";
 import ProfileScreen from "./screens/ProfileScreen";
 import EditProfileScreen from "./screens/EditProfileScreen";
 import EmailVerificationScreen from './screens/EmailVerificationScreen';
+import AIChatScreen from './screens/AIChatScreen'; 
 import { RootStackParamList } from "./types";
 import linking from "./server/linking";
 import PushNotification from "react-native-push-notification";
@@ -75,7 +76,8 @@ export default function App() {
         <Stack.Screen name="EditTaskForm" component={EditTaskForm} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen}options={{ headerShown: false }}/>
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="AIChat" component={AIChatScreen} options={{ headerShown: false }}/>
       </Stack.Navigator>
     </NavigationContainer>
   );

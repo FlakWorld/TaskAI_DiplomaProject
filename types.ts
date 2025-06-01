@@ -12,6 +12,7 @@ export type RootStackParamList = {
   Profile: undefined;
   EditProfile: undefined;
   EmailVerification: { email: string };
+  AIChat: undefined; // Добавляем AI чат
 };
 
 export type Task = {
@@ -43,3 +44,43 @@ export const TASK_CATEGORIES: TaskCategory[] = [
 
 // Универсальный тип для всех экранов
 export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, T>;
+
+// Типы для AI чата
+export interface ChatMessage {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+  hasTaskSuggestion?: boolean;
+}
+
+export interface AIContext {
+  tasks: Task[];
+  userName: string;
+  currentDate: string;
+}
+
+export interface AISuggestion {
+  type: 'create_task' | 'update_task_status' | 'add_reminder' | 'suggest_planning';
+  data: any;
+}
+
+export interface ChatGPTResponse {
+  message: string;
+  suggestedActions?: AISuggestion[];
+}
+
+// Дополнительные типы для AI аналитики
+export interface TaskStats {
+  total: number;
+  completed: number;
+  inProgress: number;
+  todayTasks: number;
+  completionRate: number;
+}
+
+export interface ProductivityInsight {
+  type: 'warning' | 'success' | 'info';
+  message: string;
+  actionRequired?: boolean;
+}

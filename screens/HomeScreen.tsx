@@ -37,6 +37,168 @@ type Task = {
   tags?: string[];
 };
 
+// AI Assistant Card Component
+const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[] }> = ({ navigation, tasks }) => {
+  const completedTasks = tasks.filter(t => t.status === 'выполнено');
+  const inProgressTasks = tasks.filter(t => t.status === 'в прогрессе');
+  const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
+  
+  const getMotivationalText = () => {
+    if (tasks.length === 0) {
+      return "Готов помочь с планированием! 🚀";
+    } else if (completionRate >= 80) {
+      return "Отличная работа! 🎉";
+    } else if (completionRate >= 50) {
+      return "Хороший прогресс! 👍";
+    } else {
+      return "Давай разберемся с задачами! 💪";
+    }
+  };
+
+  const getInsightText = () => {
+    if (tasks.length === 0) {
+      return "Создай первую задачу и я помогу с планированием";
+    }
+    
+    const today = new Date();
+    const todayStr = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
+    const todayTasks = tasks.filter(t => t.date === todayStr).length;
+    
+    if (todayTasks > 0) {
+      return `На сегодня у тебя ${todayTasks} задач`;
+    } else {
+      return "Планируй новые задачи вместе со мной";
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.aiAssistantCard}
+      onPress={() => navigation.navigate('AIChat')}
+      activeOpacity={0.8}
+    >
+      <LinearGradient
+        colors={['#FFFFFF', '#F8F9FA']}
+        style={styles.aiAssistantGradient}
+      >
+        <View style={styles.aiAssistantHeader}>
+          <View style={styles.aiAssistantAvatar}>
+            <Image source={DinoImage} style={styles.aiAssistantImage} />
+          </View>
+          <View style={styles.aiAssistantInfo}>
+            <Text style={styles.aiAssistantTitle}>AI Помощник</Text>
+            <Text style={styles.aiAssistantSubtitle}>{getMotivationalText()}</Text>
+          </View>
+          <View style={styles.aiAssistantStats}>
+            <View style={[styles.completionCircle, { 
+              borderColor: completionRate >= 70 ? '#4CAF50' : completionRate >= 40 ? '#FF9800' : '#FF5722' 
+            }]}>
+              <Text style={[styles.completionText, { 
+                color: completionRate >= 70 ? '#4CAF50' : completionRate >= 40 ? '#FF9800' : '#FF5722' 
+              }]}>
+                {completionRate}%
+              </Text>
+            </View>
+          </View>
+        </View>
+        
+        <Text style={styles.aiAssistantInsight}>{getInsightText()}</Text>
+        
+        <View style={styles.aiAssistantActions}>
+          <View style={styles.aiQuickAction}>
+            <Ionicons name="analytics-outline" size={16} color="#6B6F45" />
+            <Text style={styles.aiQuickActionText}>Анализ</Text>
+          </View>
+          <View style={styles.aiQuickAction}>
+            <Ionicons name="calendar-outline" size={16} color="#6B6F45" />
+            <Text style={styles.aiQuickActionText}>Планирование</Text>
+          </View>
+          <View style={styles.aiQuickAction}>
+            <Ionicons name="flash-outline" size={16} color="#6B6F45" />
+            <Text style={styles.aiQuickActionText}>Мотивация</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="#6B6F45" style={styles.aiChevron} />
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+};
+
+// Enhanced Menu with AI
+const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogout }: any) => (
+  <Modal
+    transparent={true}
+    visible={isMenuVisible}
+    onRequestClose={() => setMenuVisible(false)}
+    animationType="fade"
+  >
+    <TouchableOpacity
+      style={styles.menuOverlay}
+      activeOpacity={1}
+      onPress={() => setMenuVisible(false)}
+    >
+      <View style={styles.menu}>
+        <LinearGradient
+          colors={['#FFF', '#F8F9FA']}
+          style={styles.menuGradient}
+        >
+          {/* AI Помощник */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
+              navigation.navigate('AIChat');
+            }}
+          >
+            <View style={[styles.menuIconContainer, styles.aiMenuIcon]}>
+              <Image source={DinoImage} style={styles.menuAIImage} />
+            </View>
+            <Text style={styles.menuText}>AI Помощник</Text>
+            <View style={styles.aiMenuBadge}>
+              <Text style={styles.aiMenuBadgeText}>NEW</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#6B6F45" />
+          </TouchableOpacity>
+          
+          <View style={styles.menuDivider} />
+          
+          {/* Профиль */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
+              navigation.navigate('Profile');
+            }}
+          >
+            <View style={styles.menuIconContainer}>
+              <Ionicons name="person-outline" size={20} color="#6B6F45" />
+            </View>
+            <Text style={styles.menuText}>Профиль</Text>
+            <Ionicons name="chevron-forward" size={16} color="#6B6F45" />
+          </TouchableOpacity>
+          
+          <View style={styles.menuDivider} />
+          
+          {/* Выйти */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
+              handleLogout();
+            }}
+          >
+            <View style={[styles.menuIconContainer, styles.logoutIconContainer]}>
+              <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
+            </View>
+            <Text style={[styles.menuText, styles.logoutText]}>Выйти</Text>
+            <Ionicons name="chevron-forward" size={16} color="#FF6B6B" />
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
+    </TouchableOpacity>
+  </Modal>
+);
+
 export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState("");
@@ -667,6 +829,9 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         </LinearGradient>
       </View>
 
+      {/* AI Assistant Card */}
+      <AIAssistantCard navigation={navigation} tasks={tasks} />
+
       {/* AI Suggestion */}
       {suggestedTask && (
         <Animated.View style={[styles.suggestionContainer, { opacity: fadeAnim }]}>
@@ -816,56 +981,13 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         </TouchableOpacity>
       </Modal>
 
-      {/* Menu Modal */}
-      <Modal
-        transparent={true}
-        visible={isMenuVisible}
-        onRequestClose={() => setMenuVisible(false)}
-        animationType="fade"
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={() => setMenuVisible(false)}
-        >
-          <View style={styles.menu}>
-            <LinearGradient
-              colors={['#FFF', '#F8F9FA']}
-              style={styles.menuGradient}
-            >
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setMenuVisible(false);
-                  navigation.navigate('Profile');
-                }}
-              >
-                <View style={styles.menuIconContainer}>
-                  <Ionicons name="person-outline" size={20} color="#6B6F45" />
-                </View>
-                <Text style={styles.menuText}>Профиль</Text>
-                <Ionicons name="chevron-forward" size={16} color="#6B6F45" />
-              </TouchableOpacity>
-              
-              <View style={styles.menuDivider} />
-              
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setMenuVisible(false);
-                  handleLogout();
-                }}
-              >
-                <View style={[styles.menuIconContainer, styles.logoutIconContainer]}>
-                  <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
-                </View>
-                <Text style={[styles.menuText, styles.logoutText]}>Выйти</Text>
-                <Ionicons name="chevron-forward" size={16} color="#FF6B6B" />
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Enhanced Menu Modal with AI */}
+      <MenuModalWithAI 
+        isMenuVisible={isMenuVisible}
+        setMenuVisible={setMenuVisible}
+        navigation={navigation}
+        handleLogout={handleLogout}
+      />
     </LinearGradient>
   );
 }
@@ -981,6 +1103,124 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
   },
+  
+  // AI Assistant Card Styles
+  aiAssistantCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  aiAssistantGradient: {
+    padding: 20,
+  },
+  aiAssistantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  aiAssistantAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    overflow: 'hidden',
+    marginRight: 16,
+  },
+  aiAssistantImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  aiAssistantInfo: {
+    flex: 1,
+  },
+  aiAssistantTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  aiAssistantSubtitle: {
+    fontSize: 14,
+    color: '#6B6F45',
+    fontWeight: '500',
+  },
+  aiAssistantStats: {
+    alignItems: 'center',
+  },
+  completionCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+  },
+  completionText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  aiAssistantInsight: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  aiAssistantActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  aiQuickAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 195, 74, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  aiQuickActionText: {
+    fontSize: 12,
+    color: '#6B6F45',
+    fontWeight: '500',
+  },
+  aiChevron: {
+    marginLeft: 'auto',
+  },
+
+  // Enhanced Menu Styles
+  aiMenuIcon: {
+    backgroundColor: 'rgba(139, 195, 74, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 195, 74, 0.3)',
+  },
+  menuAIImage: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    resizeMode: 'cover',
+  },
+  aiMenuBadge: {
+    backgroundColor: '#FF5722',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  aiMenuBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+
+  // Original styles continue...
   suggestionContainer: {
     marginHorizontal: 20,
     marginBottom: 20,

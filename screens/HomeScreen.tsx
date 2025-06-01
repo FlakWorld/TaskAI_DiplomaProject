@@ -24,6 +24,7 @@ import { Image } from "react-native";
 import DinoImage from "../assets/dino.jpg";
 import PushNotification from "react-native-push-notification";
 import { LinearGradient } from 'react-native-linear-gradient';
+import { PermissionsAndroid } from "react-native";
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,7 +67,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
       (created: any) => console.log(`Channel created: ${created}`)
     );
 
-    // Конфигурируем PushNotification
+    // Конфигурируем PushNotification с дополнительной обработкой ошибок
     PushNotification.configure({
       onRegister: function (token: any) {
         console.log("TOKEN:", token);
@@ -79,7 +80,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         console.log("NOTIFICATION:", notification);
       },
       onRegistrationError: function(err: any) {
-        console.error(err.message, err);
+        console.error("Push notification registration error:", err.message, err);
       },
       permissions: {
         alert: true,
@@ -177,90 +178,149 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     return Math.abs(hash);
   };
 
+  const checkAndRequestNotificationPermissions = async (): Promise<boolean> => {
+    try {
+      if (Platform.OS === 'android' && Platform.Version >= 33) {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          {
+            title: 'Разрешение на уведомления',
+            message: 'Приложению нужно разрешение для отправки уведомлений о задачах',
+            buttonNeutral: 'Спросить позже',
+            buttonNegative: 'Отмена',
+            buttonPositive: 'Разрешить',
+          },
+        );
+        
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          return false;
+        }
+      }
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const checkExactAlarmPermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android' || Platform.Version < 31) {
+      return true;
+    }
+
+    try {
+      const granted = await PermissionsAndroid.check(
+        'android.permission.SCHEDULE_EXACT_ALARM' as any
+      );
+      
+      if (!granted) {
+        // Проверяем, показывали ли уже это уведомление
+        const hasShownExactAlarmAlert = await AsyncStorage.getItem("hasShownExactAlarmAlert");
+        
+        if (!hasShownExactAlarmAlert) {
+          await AsyncStorage.setItem("hasShownExactAlarmAlert", "true");
+          
+          Alert.alert(
+            "Для точных уведомлений",
+            "Чтобы получать напоминания ровно за 10 минут до задач, включите разрешение в настройках:\n\nНастройки → Приложения → TaskAI → Специальный доступ → Будильники и напоминания",
+            [
+              { text: "Понятно", style: "cancel" },
+              { 
+                text: "Открыть настройки", 
+                onPress: () => Linking.openSettings()
+              }
+            ]
+          );
+        }
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
   // Планирование уведомлений (исправленная версия)
-  const scheduleNotifications = (tasks: Task[]) => {
-    // Отменяем все существующие уведомления
-    PushNotification.cancelAllLocalNotifications();
-
-    const now = new Date();
-    console.log("=== ОТЛАДКА ВРЕМЕНИ ===");
-    console.log(`Текущее время устройства: ${now}`);
-    console.log(`Текущее время (локальное): ${now.toLocaleString()}`);
-    console.log(`Часовой пояс: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
-    console.log(`UTC время: ${now.toISOString()}`);
-    console.log(`Смещение часового пояса: ${now.getTimezoneOffset()} минут`);
-    console.log("========================");
-
-    console.log("Планируем уведомления для задач:", tasks.length);
-
-    tasks.forEach((task) => {
-      if (task.status === "выполнено") {
-        console.log(`Пропускаем выполненную задачу: ${task.title}`);
+  const scheduleNotifications = async (tasks: Task[]) => {
+    try {
+      // Проверяем базовые разрешения на уведомления
+      const hasNotificationPermission = await checkAndRequestNotificationPermissions();
+      if (!hasNotificationPermission) {
         return;
       }
+      
+      // Проверяем разрешения на точные будильники
+      await checkExactAlarmPermission();
+      
+      // Отменяем все существующие уведомления
+      PushNotification.cancelAllLocalNotifications();
 
-      if (task.date && task.time) {
-        try {
-          const [day, month, year] = task.date.split(".");
-          const [hours, minutes] = task.time.split(":");
-          
-          const taskDate = new Date(
-            Number(year), 
-            Number(month) - 1, 
-            Number(day), 
-            Number(hours), 
-            Number(minutes)
-          );
+      const now = new Date();
+      let scheduledCount = 0;
 
-          if (isNaN(taskDate.getTime())) {
-            console.warn(`Некорректная дата у задачи "${task.title}":`, task.date, task.time);
-            return;
-          }
-
-          // Время уведомления - за 10 минут до задачи
-          const notifyTime = new Date(taskDate.getTime() - 10 * 60 * 1000);
-
-          console.log(`--- Задача: ${task.title} ---`);
-          console.log(`Исходные данные: ${task.date} ${task.time}`);
-          console.log(`Время задачи: ${taskDate.toLocaleString()}`);
-          console.log(`Время уведомления: ${notifyTime.toLocaleString()}`);
-          console.log(`Текущее время: ${now.toLocaleString()}`);
-          console.log(`Разница с текущим временем: ${Math.round((notifyTime.getTime() - now.getTime()) / (1000 * 60))} минут`);
-
-          if (notifyTime > now) {
-            const numericId = stringToNumericId(task._id);
-            
-            PushNotification.localNotificationSchedule({
-              channelId: "tasks-channel",
-              id: numericId.toString(),
-              title: "Напоминание о задаче",
-              message: `Уважаемый пользователь, через 10 минут начинается задача: "${task.title}"`,
-              date: notifyTime,
-              allowWhileIdle: true,
-              playSound: true,
-              soundName: "default",
-              vibrate: true,
-              vibration: 300,
-              priority: "high",
-              visibility: "public",
-              importance: "high",
-              userInfo: {
-                taskId: task._id,
-                taskTitle: task.title,
-              },
-            });
-
-            console.log(`✅ Уведомление запланировано для задачи "${task.title}" на ${notifyTime.toLocaleString()}`);
-          } else {
-            console.log(`❌ Время уведомления для задачи "${task.title}" уже прошло (${Math.round((now.getTime() - notifyTime.getTime()) / (1000 * 60))} минут назад)`);
-          }
-        } catch (error) {
-          console.warn(`Ошибка при планировании уведомления для задачи "${task.title}":`, error);
+      tasks.forEach((task) => {
+        if (task.status === "выполнено") {
+          return;
         }
-      } else {
-        console.log(`У задачи "${task.title}" нет даты или времени`);
-      }
-    });
+
+        if (task.date && task.time) {
+          try {
+            const [day, month, year] = task.date.split(".");
+            const [hours, minutes] = task.time.split(":");
+            
+            const taskDate = new Date(
+              Number(year), 
+              Number(month) - 1, 
+              Number(day), 
+              Number(hours), 
+              Number(minutes)
+            );
+
+            if (isNaN(taskDate.getTime())) {
+              return;
+            }
+
+            // Время уведомления - за 10 минут до задачи
+            const notifyTime = new Date(taskDate.getTime() - 10 * 60 * 1000);
+
+            if (notifyTime > now) {
+              const numericId = stringToNumericId(task._id);
+              
+              try {
+                PushNotification.localNotificationSchedule({
+                  channelId: "tasks-channel",
+                  id: numericId.toString(),
+                  title: "Напоминание о задаче",
+                  message: `Через 10 минут начинается: "${task.title}"`,
+                  date: notifyTime,
+                  allowWhileIdle: true,
+                  playSound: true,
+                  soundName: "default",
+                  vibrate: true,
+                  vibration: 300,
+                  priority: "high",
+                  visibility: "public",
+                  importance: "high",
+                  userInfo: {
+                    taskId: task._id,
+                    taskTitle: task.title,
+                  },
+                });
+
+                scheduledCount++;
+              } catch (scheduleError: any) {
+                // Тихо игнорируем ошибки планирования
+              }
+            }
+          } catch (error) {
+            // Тихо игнорируем ошибки парсинга даты
+          }
+        }
+      });
+      
+    } catch (error: any) {
+      // Тихо игнорируем общие ошибки
+    }
   };
 
   const createSuggestedTask = async () => {

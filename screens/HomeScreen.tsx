@@ -20,6 +20,7 @@ import { getTasks, deleteTask } from "../server/api";
 import { ScreenProps, TASK_CATEGORIES } from "../types";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { getSuggestedTask, saveTaskPattern, rejectTaskPattern } from "../services/aiService";
+import { tensorflowLiteService } from "../services/tensorflowService"; // Новый импорт
 import { Image } from "react-native";
 import DinoImage from "../assets/dino.jpg";
 import PushNotification from "react-native-push-notification";
@@ -28,6 +29,7 @@ import { PermissionsAndroid } from "react-native";
 
 const { width, height } = Dimensions.get('window');
 
+// Обновленный интерфейс Task с анализом ИИ
 type Task = {
   _id: string;
   title: string;
@@ -35,10 +37,26 @@ type Task = {
   time?: string;
   status: "в прогрессе" | "выполнено";
   tags?: string[];
+  // Новые поля для ИИ анализа
+  analysis?: {
+    sentiment: {
+      sentiment: 'positive' | 'negative' | 'neutral';
+      confidence: number;
+      suggestion?: string;
+      aiModelUsed: string;
+    };
+    category: string;
+    estimatedDuration: number;
+    priority: 'high' | 'medium' | 'low';
+  };
 };
 
-// AI Assistant Card Component
-const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[] }> = ({ navigation, tasks }) => {
+// Обновленная AI Assistant Card с аналитикой
+const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any }> = ({ 
+  navigation, 
+  tasks, 
+  aiStats 
+}) => {
   const completedTasks = tasks.filter(t => t.status === 'выполнено');
   const inProgressTasks = tasks.filter(t => t.status === 'в прогрессе');
   const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
@@ -46,6 +64,10 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[] }> = ({ navigat
   const getMotivationalText = () => {
     if (tasks.length === 0) {
       return "Готов помочь с планированием! 🚀";
+    } else if (aiStats && aiStats.positive > aiStats.negative) {
+      return "Отличный настрой! 🎉";
+    } else if (aiStats && aiStats.negative > aiStats.positive) {
+      return "Есть сложные задачи, но вы справитесь! 💪";
     } else if (completionRate >= 80) {
       return "Отличная работа! 🎉";
     } else if (completionRate >= 50) {
@@ -58,6 +80,18 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[] }> = ({ navigat
   const getInsightText = () => {
     if (tasks.length === 0) {
       return "Создай первую задачу и я помогу с планированием";
+    }
+    
+    if (aiStats) {
+      const totalDuration = aiStats.averageDuration * tasks.length;
+      const hours = Math.floor(totalDuration / 60);
+      const minutes = totalDuration % 60;
+      
+      if (hours > 0) {
+        return `Общее время на задачи: ~${hours}ч ${minutes}м`;
+      } else {
+        return `Общее время на задачи: ~${minutes}м`;
+      }
     }
     
     const today = new Date();
@@ -104,18 +138,39 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[] }> = ({ navigat
         
         <Text style={styles.aiAssistantInsight}>{getInsightText()}</Text>
         
+        {/* Новая аналитика от ИИ */}
+        {aiStats && (
+          <View style={styles.aiAnalyticsRow}>
+            <View style={styles.aiAnalyticItem}>
+              <Text style={styles.aiAnalyticIcon}>😊</Text>
+              <Text style={styles.aiAnalyticNumber}>{aiStats.positive}</Text>
+              <Text style={styles.aiAnalyticLabel}>Позитивные</Text>
+            </View>
+            <View style={styles.aiAnalyticItem}>
+              <Text style={styles.aiAnalyticIcon}>😐</Text>
+              <Text style={styles.aiAnalyticNumber}>{aiStats.neutral}</Text>
+              <Text style={styles.aiAnalyticLabel}>Нейтральные</Text>
+            </View>
+            <View style={styles.aiAnalyticItem}>
+              <Text style={styles.aiAnalyticIcon}>😤</Text>
+              <Text style={styles.aiAnalyticNumber}>{aiStats.negative}</Text>
+              <Text style={styles.aiAnalyticLabel}>Сложные</Text>
+            </View>
+          </View>
+        )}
+        
         <View style={styles.aiAssistantActions}>
           <View style={styles.aiQuickAction}>
             <Ionicons name="analytics-outline" size={16} color="#6B6F45" />
-            <Text style={styles.aiQuickActionText}>Анализ</Text>
+            <Text style={styles.aiQuickActionText}>TensorFlow Lite</Text>
           </View>
           <View style={styles.aiQuickAction}>
-            <Ionicons name="calendar-outline" size={16} color="#6B6F45" />
-            <Text style={styles.aiQuickActionText}>Планирование</Text>
+            <Ionicons name="brain-outline" size={16} color="#6B6F45" />
+            <Text style={styles.aiQuickActionText}>MobileBERT</Text>
           </View>
           <View style={styles.aiQuickAction}>
             <Ionicons name="flash-outline" size={16} color="#6B6F45" />
-            <Text style={styles.aiQuickActionText}>Мотивация</Text>
+            <Text style={styles.aiQuickActionText}>Анализ</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color="#6B6F45" style={styles.aiChevron} />
         </View>
@@ -155,7 +210,7 @@ const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogo
             </View>
             <Text style={styles.menuText}>AI Помощник</Text>
             <View style={styles.aiMenuBadge}>
-              <Text style={styles.aiMenuBadgeText}>NEW</Text>
+              <Text style={styles.aiMenuBadgeText}>TF LITE</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#6B6F45" />
           </TouchableOpacity>
@@ -209,9 +264,18 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const [suggestedTask, setSuggestedTask] = useState<string | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
   
+  // Новые состояния для ИИ анализа
+  const [aiStats, setAiStats] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
   // Новые состояния для фильтрации
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+
+  // Инициализация TensorFlow Lite
+  useEffect(() => {
+    tensorflowLiteService.initialize();
+  }, []);
 
   // Инициализация push-уведомлений
   useEffect(() => {
@@ -328,6 +392,43 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
       fadeAnim.setValue(0);
     }
   }, [suggestedTask, fadeAnim]);
+
+  // Функция для анализа задач с помощью TensorFlow Lite
+  const analyzeTasksWithAI = async (taskList: Task[]) => {
+    if (taskList.length === 0) {
+      setAiStats(null);
+      return taskList;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      console.log('🤖 Запуск анализа задач с TensorFlow Lite...');
+      
+      const analysis = await tensorflowLiteService.analyzeTaskList(
+        taskList.map(task => ({
+          id: task._id,
+          text: task.title,
+          completed: task.status === 'выполнено'
+        }))
+      );
+
+      // Обновляем задачи с результатами анализа
+      const analyzedTasks = analysis.results.map(result => ({
+        ...taskList.find(task => task._id === result.id)!,
+        analysis: result.analysis
+      }));
+
+      setAiStats(analysis.stats);
+      console.log('✅ Анализ завершен:', analysis.stats);
+      
+      return analyzedTasks;
+    } catch (error) {
+      console.error('❌ Ошибка анализа ИИ:', error);
+      return taskList;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   // Функция для создания уникального числового ID из строки
   const stringToNumericId = (str: string): number => {
@@ -548,7 +649,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     }
   };
 
-  // Загрузка задач с сервера и планирование уведомлений
+  // Загрузка задач с сервера и анализ ИИ
   const loadTasks = useCallback(
     async (userToken: string) => {
       try {
@@ -565,8 +666,11 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           tags: task.tags || [],
         }));
 
-        setTasks(formattedTasks);
-        scheduleNotifications(formattedTasks);
+        // Анализируем задачи с помощью ИИ
+        const analyzedTasks = await analyzeTasksWithAI(formattedTasks);
+        setTasks(analyzedTasks);
+        
+        scheduleNotifications(analyzedTasks);
       } catch (error) {
         console.error("Failed to load tasks:", error);
         Alert.alert("Error", error instanceof Error ? error.message : "Failed to load tasks");
@@ -647,6 +751,36 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     return a.title.localeCompare(b.title);
   });
 
+  // Функции для отображения ИИ данных
+  const getSentimentIcon = (sentiment?: string) => {
+    if (!sentiment) return '';
+    switch (sentiment) {
+      case 'positive': return '😊';
+      case 'negative': return '😤';
+      default: return '😐';
+    }
+  };
+
+  const getPriorityColor = (priority?: string) => {
+    if (!priority) return '#9E9E9E';
+    switch (priority) {
+      case 'high': return '#F44336';
+      case 'medium': return '#FF9800';
+      case 'low': return '#4CAF50';
+      default: return '#9E9E9E';
+    }
+  };
+
+  const getPriorityIcon = (priority?: string) => {
+    if (!priority) return '📋';
+    switch (priority) {
+      case 'high': return '🚨';
+      case 'medium': return '⚡';
+      case 'low': return '😌';
+      default: return '📋';
+    }
+  };
+
   const renderTaskItem = ({ item }: { item: Task }) => (
     <View style={styles.taskAnimationContainer}>
       <TouchableOpacity
@@ -659,19 +793,34 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           style={styles.taskGradient}
         >
           <View style={styles.taskLeft}>
-            {/* Индикатор статуса */}
+            {/* Индикатор приоритета (цвет от ИИ) */}
             <View style={[
               styles.statusIndicator,
-              item.status === "выполнено" ? styles.statusCompleted : styles.statusInProgress
+              { backgroundColor: item.analysis ? getPriorityColor(item.analysis.priority) : 
+                (item.status === "выполнено" ? '#4CAF50' : '#FF9800') }
             ]} />
             
             <View style={styles.taskContent}>
-              <Text style={[
-                styles.taskTitle,
-                item.status === "выполнено" && styles.taskTitleCompleted
-              ]}>
-                {item.title}
-              </Text>
+              <View style={styles.taskHeader}>
+                <Text style={[
+                  styles.taskTitle,
+                  item.status === "выполнено" && styles.taskTitleCompleted
+                ]}>
+                  {item.title}
+                </Text>
+                
+                {/* ИИ анализ в заголовке */}
+                {item.analysis && (
+                  <View style={styles.aiIndicatorsRow}>
+                    <Text style={styles.sentimentIcon}>
+                      {getSentimentIcon(item.analysis.sentiment.sentiment)}
+                    </Text>
+                    <Text style={styles.priorityIcon}>
+                      {getPriorityIcon(item.analysis.priority)}
+                    </Text>
+                  </View>
+                )}
+              </View>
               
               {/* Отображение тегов */}
               {item.tags && item.tags.length > 0 && (
@@ -697,6 +846,18 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                   {item.tags.length > 3 && (
                     <Text style={styles.moreTagsText}>+{item.tags.length - 3}</Text>
                   )}
+                </View>
+              )}
+              
+              {/* ИИ аналитика */}
+              {item.analysis && (
+                <View style={styles.aiAnalysisContainer}>
+                  <Text style={styles.aiAnalysisText}>
+                    🤖 {item.analysis.category} • ~{item.analysis.estimatedDuration}м • 
+                    {item.analysis.sentiment.sentiment === 'positive' ? ' Позитивная' : 
+                     item.analysis.sentiment.sentiment === 'negative' ? ' Сложная' : ' Нейтральная'} 
+                    ({Math.round(item.analysis.sentiment.confidence * 100)}%)
+                  </Text>
                 </View>
               )}
               
@@ -749,6 +910,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#fff" />
+        <Text style={styles.loadingText}>Инициализация ИИ...</Text>
       </View>
     );
   }
@@ -774,7 +936,10 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Мои Задачи</Text>
-          <Text style={styles.tasksCount}>{tasks.length} задач</Text>
+          <Text style={styles.tasksCount}>
+            {tasks.length} задач 
+            {isAnalyzing && <Text style={styles.analyzingIndicator}> • ИИ анализирует...</Text>}
+          </Text>
         </View>
         
         <TouchableOpacity
@@ -829,8 +994,8 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         </LinearGradient>
       </View>
 
-      {/* AI Assistant Card */}
-      <AIAssistantCard navigation={navigation} tasks={tasks} />
+      {/* AI Assistant Card with enhanced analytics */}
+      <AIAssistantCard navigation={navigation} tasks={tasks} aiStats={aiStats} />
 
       {/* AI Suggestion */}
       {suggestedTask && (
@@ -848,7 +1013,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               </View>
               <View style={styles.suggestionTitleContainer}>
                 <Text style={styles.suggestionTitle}>ИИ предлагает:</Text>
-                <Text style={styles.suggestionSubtitle}>Основано на ваших привычках</Text>
+                <Text style={styles.suggestionSubtitle}>TensorFlow Lite анализ</Text>
               </View>
             </View>
             
@@ -901,7 +1066,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               {search || selectedCategory ? "Ничего не найдено" : "Пока нет задач"}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {search || selectedCategory ? "Попробуйте изменить фильтры" : "Создайте свою первую задачу"}
+              {search || selectedCategory ? "Попробуйте изменить фильтры" : "Создайте свою первую задачу с ИИ анализом"}
             </Text>
           </View>
         }
@@ -1001,6 +1166,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  loadingText: {
+    color: '#FFF',
+    marginTop: 10,
+    fontSize: 16,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -1036,6 +1206,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
+  },
+  analyzingIndicator: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontStyle: 'italic',
   },
   filterButton: {
     width: 44,
@@ -1104,7 +1278,7 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   
-  // AI Assistant Card Styles
+  // Enhanced AI Assistant Card Styles
   aiAssistantCard: {
     marginHorizontal: 20,
     marginBottom: 20,
@@ -1172,6 +1346,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 20,
   },
+  // New AI Analytics Styles
+  aiAnalyticsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+    backgroundColor: 'rgba(139, 195, 74, 0.05)',
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  aiAnalyticItem: {
+    alignItems: 'center',
+  },
+  aiAnalyticIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  aiAnalyticNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#6B6F45',
+  },
+  aiAnalyticLabel: {
+    fontSize: 10,
+    color: '#6B6F45',
+    opacity: 0.8,
+  },
   aiAssistantActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1181,13 +1381,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(139, 195, 74, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 3,
   },
   aiQuickActionText: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#6B6F45',
     fontWeight: '500',
   },
@@ -1208,7 +1408,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   aiMenuBadge: {
-    backgroundColor: '#FF5722',
+    backgroundColor: '#4CAF50',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1216,8 +1416,38 @@ const styles = StyleSheet.create({
   },
   aiMenuBadgeText: {
     color: '#FFF',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
+  },
+
+  // Enhanced Task Styles with AI Analysis
+  taskHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  aiIndicatorsRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  sentimentIcon: {
+    fontSize: 16,
+  },
+  priorityIcon: {
+    fontSize: 14,
+  },
+  aiAnalysisContainer: {
+    backgroundColor: 'rgba(139, 195, 74, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  aiAnalysisText: {
+    fontSize: 11,
+    color: '#6B6F45',
+    fontWeight: '500',
   },
 
   // Original styles continue...
@@ -1358,6 +1588,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 6,
     lineHeight: 20,
+    flex: 1,
   },
   taskTitleCompleted: {
     textDecorationLine: 'line-through',

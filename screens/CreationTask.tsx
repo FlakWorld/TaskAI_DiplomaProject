@@ -10,6 +10,7 @@ import {
   Dimensions,
   Animated,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -17,9 +18,23 @@ import { ScreenProps, TASK_CATEGORIES } from "../types";
 import { createTask } from "../server/api";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { saveTaskPattern } from "../services/aiService";
+import { tensorflowLiteService } from "../services/tensorflowService"; // Новый импорт
 import { LinearGradient } from 'react-native-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
+
+// Интерфейс для анализа ИИ
+interface TaskAnalysis {
+  sentiment: {
+    sentiment: 'positive' | 'negative' | 'neutral';
+    confidence: number;
+    suggestion?: string;
+    aiModelUsed: string;
+  };
+  category: string;
+  estimatedDuration: number;
+  priority: 'high' | 'medium' | 'low';
+}
 
 export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   const [task, setTask] = useState("");
@@ -29,6 +44,12 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   const [token, setToken] = useState<string | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
+  
+  // Новые состояния для ИИ анализа
+  const [taskAnalysis, setTaskAnalysis] = useState<TaskAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
     const loadToken = async () => {
@@ -40,6 +61,9 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       setToken(storedToken);
     };
     loadToken();
+
+    // Инициализируем TensorFlow Lite
+    tensorflowLiteService.initialize();
 
     // Анимация появления
     Animated.parallel([
@@ -56,6 +80,40 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       }),
     ]).start();
   }, [navigation, fadeAnim, scaleAnim]);
+
+  // Анализ задачи в реальном времени
+  useEffect(() => {
+    if (task.length > 3) {
+      const timer = setTimeout(async () => {
+        setIsAnalyzing(true);
+        try {
+          console.log('🤖 Анализ задачи:', task);
+          const analysis = await tensorflowLiteService.analyzeTask(task);
+          setTaskAnalysis(analysis);
+          setShowAnalysis(true);
+          
+          // Анимация появления анализа
+          Animated.timing(analysisAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }).start();
+          
+          console.log('✅ Анализ завершен:', analysis);
+        } catch (error) {
+          console.error('❌ Ошибка анализа:', error);
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }, 1000); // Анализируем через 1 секунду после остановки печати
+
+      return () => clearTimeout(timer);
+    } else {
+      setTaskAnalysis(null);
+      setShowAnalysis(false);
+      analysisAnim.setValue(0);
+    }
+  }, [task, analysisAnim]);
 
   const formatDate = (date: Date) => {
     const day = String(date.getDate()).padStart(2, "0");
@@ -90,12 +148,21 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
     }
   
     try {
+      // Получаем финальный анализ от ИИ
+      let finalAnalysis = taskAnalysis;
+      if (!finalAnalysis && task.length > 3) {
+        console.log('🤖 Финальный анализ задачи...');
+        finalAnalysis = await tensorflowLiteService.analyzeTask(task);
+      }
+
       const taskData = {
         title: task,
         date: formatDate(date),
         time: formatTime(time),
         status: "в прогрессе",
-        tags: selectedTags
+        tags: selectedTags,
+        // Добавляем результаты анализа ИИ
+        analysis: finalAnalysis
       };
   
       console.log("Отправка данных:", taskData);
@@ -113,7 +180,24 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       
       await saveTaskPattern(task); // обучение ИИ
 
-      Alert.alert("Успех", "Задача успешно создана", [
+      // Показываем детальное сообщение с результатами анализа ИИ
+      let alertMessage = "Задача успешно создана";
+      if (finalAnalysis) {
+        alertMessage += `\n\n🤖 Анализ ИИ:\n` +
+          `📂 Категория: ${finalAnalysis.category}\n` +
+          `⏱️ Время: ~${finalAnalysis.estimatedDuration} мин\n` +
+          `🎯 Приоритет: ${finalAnalysis.priority === 'high' ? 'Высокий' : 
+                          finalAnalysis.priority === 'medium' ? 'Средний' : 'Низкий'}\n` +
+          `😊 Тональность: ${finalAnalysis.sentiment.sentiment === 'positive' ? 'Позитивная' : 
+                            finalAnalysis.sentiment.sentiment === 'negative' ? 'Сложная' : 'Нейтральная'} ` +
+          `(${Math.round(finalAnalysis.sentiment.confidence * 100)}%)`;
+        
+        if (finalAnalysis.sentiment.suggestion) {
+          alertMessage += `\n\n💡 ${finalAnalysis.sentiment.suggestion}`;
+        }
+      }
+
+      Alert.alert("Успех", alertMessage, [
         { text: "OK", onPress: () => navigation.navigate("Home", { refreshed: true }) }
       ]);
   
@@ -168,6 +252,41 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
     return formatDate(date);
   };
 
+  // Функции для отображения результатов анализа ИИ
+  const getSentimentColor = (sentiment: string) => {
+    switch (sentiment) {
+      case 'positive': return '#4CAF50';
+      case 'negative': return '#F44336';
+      default: return '#FF9800';
+    }
+  };
+
+  const getSentimentIcon = (sentiment: string) => {
+    switch (sentiment) {
+      case 'positive': return '😊';
+      case 'negative': return '😤';
+      default: return '😐';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return '#F44336';
+      case 'medium': return '#FF9800';
+      case 'low': return '#4CAF50';
+      default: return '#9E9E9E';
+    }
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case 'high': return '🚨';
+      case 'medium': return '⚡';
+      case 'low': return '😌';
+      default: return '📋';
+    }
+  };
+
   return (
     <LinearGradient
       colors={['#8BC34A', '#6B6F45', '#4A5D23']}
@@ -202,7 +321,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
 
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Создать задачу</Text>
-              <Text style={styles.subtitle}>Добавьте новую задачу в ваш список</Text>
+              <Text style={styles.subtitle}>ИИ поможет с анализом и планированием</Text>
             </View>
           </View>
 
@@ -223,44 +342,138 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     style={styles.taskInput}
                     value={task}
                     onChangeText={setTask}
-                    placeholder="Введите название"
+                    placeholder="Введите название (ИИ проанализирует автоматически)"
                     placeholderTextColor="rgba(107, 111, 69, 0.5)"
                     multiline
                     maxLength={100}
                   />
+                  {isAnalyzing && (
+                    <View style={styles.analyzingIndicator}>
+                      <ActivityIndicator size="small" color="#6B6F45" />
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.charCounter}>{task.length}/100</Text>
               </View>
 
+              {/* AI Analysis Results */}
+              {showAnalysis && taskAnalysis && (
+                <Animated.View style={[
+                  styles.aiAnalysisSection,
+                  { opacity: analysisAnim }
+                ]}>
+                  <Text style={styles.sectionTitle}>🤖 Анализ ИИ (TensorFlow Lite)</Text>
+                  
+                  <View style={styles.analysisGrid}>
+                    {/* Тональность */}
+                    <View style={[styles.analysisCard, { borderLeftColor: getSentimentColor(taskAnalysis.sentiment.sentiment) }]}>
+                      <View style={styles.analysisHeader}>
+                        <Text style={styles.analysisIcon}>{getSentimentIcon(taskAnalysis.sentiment.sentiment)}</Text>
+                        <Text style={styles.analysisTitle}>Тональность</Text>
+                      </View>
+                      <Text style={styles.analysisValue}>
+                        {taskAnalysis.sentiment.sentiment === 'positive' ? 'Позитивная' : 
+                         taskAnalysis.sentiment.sentiment === 'negative' ? 'Сложная' : 'Нейтральная'}
+                      </Text>
+                      <Text style={styles.analysisConfidence}>
+                        Уверенность: {Math.round(taskAnalysis.sentiment.confidence * 100)}%
+                      </Text>
+                    </View>
+
+                    {/* Категория */}
+                    <View style={styles.analysisCard}>
+                      <View style={styles.analysisHeader}>
+                        <Text style={styles.analysisIcon}>📂</Text>
+                        <Text style={styles.analysisTitle}>Категория</Text>
+                      </View>
+                      <Text style={styles.analysisValue}>{taskAnalysis.category}</Text>
+                      <Text style={styles.analysisSubtext}>Автоопределение</Text>
+                    </View>
+
+                    {/* Время выполнения */}
+                    <View style={styles.analysisCard}>
+                      <View style={styles.analysisHeader}>
+                        <Text style={styles.analysisIcon}>⏱️</Text>
+                        <Text style={styles.analysisTitle}>Время</Text>
+                      </View>
+                      <Text style={styles.analysisValue}>~{taskAnalysis.estimatedDuration} мин</Text>
+                      <Text style={styles.analysisSubtext}>Прогноз ИИ</Text>
+                    </View>
+
+                    {/* Приоритет */}
+                    <View style={[styles.analysisCard, { borderLeftColor: getPriorityColor(taskAnalysis.priority) }]}>
+                      <View style={styles.analysisHeader}>
+                        <Text style={styles.analysisIcon}>{getPriorityIcon(taskAnalysis.priority)}</Text>
+                        <Text style={styles.analysisTitle}>Приоритет</Text>
+                      </View>
+                      <Text style={[styles.analysisValue, { color: getPriorityColor(taskAnalysis.priority) }]}>
+                        {taskAnalysis.priority === 'high' ? 'Высокий' : 
+                         taskAnalysis.priority === 'medium' ? 'Средний' : 'Низкий'}
+                      </Text>
+                      <Text style={styles.analysisSubtext}>На основе анализа</Text>
+                    </View>
+                  </View>
+
+                  {/* AI Suggestion */}
+                  {taskAnalysis.sentiment.suggestion && (
+                    <View style={styles.aiSuggestionContainer}>
+                      <Text style={styles.aiSuggestionTitle}>💡 Рекомендация ИИ:</Text>
+                      <Text style={styles.aiSuggestionText}>{taskAnalysis.sentiment.suggestion}</Text>
+                    </View>
+                  )}
+
+                  {/* Model Info */}
+                  <View style={styles.modelInfoContainer}>
+                    <Text style={styles.modelInfoText}>
+                      Модель: {taskAnalysis.sentiment.aiModelUsed} • Обработка: локально
+                    </Text>
+                  </View>
+                </Animated.View>
+              )}
+
               {/* Categories Section */}
               <View style={styles.categoriesSection}>
-                <Text style={styles.sectionTitle}>Категории</Text>
+                <Text style={styles.sectionTitle}>
+                  Дополнительные категории
+                  {taskAnalysis && (
+                    <Text style={styles.aiSuggestedText}> (ИИ предложил: {taskAnalysis.category})</Text>
+                  )}
+                </Text>
                 <View style={styles.tagsGrid}>
-                  {TASK_CATEGORIES.map((category) => (
-                    <TouchableOpacity
-                      key={category.name}
-                      style={[
-                        styles.tagItem,
-                        selectedTags.includes(category.name) && {
-                          backgroundColor: category.color + '20',
-                          borderColor: category.color,
-                        }
-                      ]}
-                      onPress={() => toggleTag(category.name)}
-                    >
-                      <Ionicons 
-                        name={category.icon as any} 
-                        size={16} 
-                        color={selectedTags.includes(category.name) ? category.color : '#6B6F45'} 
-                      />
-                      <Text style={[
-                        styles.tagText,
-                        selectedTags.includes(category.name) && { color: category.color }
-                      ]}>
-                        {category.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {TASK_CATEGORIES.map((category) => {
+                    const isAISuggested = taskAnalysis && taskAnalysis.category === category.name;
+                    return (
+                      <TouchableOpacity
+                        key={category.name}
+                        style={[
+                          styles.tagItem,
+                          selectedTags.includes(category.name) && {
+                            backgroundColor: category.color + '20',
+                            borderColor: category.color,
+                          },
+                          isAISuggested && styles.aiSuggestedTag
+                        ]}
+                        onPress={() => toggleTag(category.name)}
+                      >
+                        <Ionicons 
+                          name={category.icon as any} 
+                          size={16} 
+                          color={selectedTags.includes(category.name) ? category.color : '#6B6F45'} 
+                        />
+                        <Text style={[
+                          styles.tagText,
+                          selectedTags.includes(category.name) && { color: category.color }
+                        ]}>
+                          {category.name}
+                        </Text>
+                        {isAISuggested && (
+                          <View style={styles.aiSuggestedBadge}>
+                            <Text style={styles.aiSuggestedBadgeText}>ИИ</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
@@ -383,7 +596,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                 styles.saveButtonText,
                 !task.trim() && styles.saveButtonTextDisabled
               ]}>
-                Сохранить задачу
+                {taskAnalysis ? 'Сохранить с анализом ИИ' : 'Сохранить задачу'}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -497,6 +710,11 @@ const styles = StyleSheet.create({
     color: '#6B6F45',
     marginBottom: 12,
   },
+  aiSuggestedText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#4CAF50',
+  },
   taskInputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -525,12 +743,103 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     lineHeight: 22,
   },
+  analyzingIndicator: {
+    marginLeft: 8,
+    marginTop: 4,
+  },
   charCounter: {
     textAlign: 'right',
     fontSize: 12,
     color: 'rgba(107, 111, 69, 0.6)',
     marginTop: 8,
   },
+
+  // AI Analysis Section Styles
+  aiAnalysisSection: {
+    marginBottom: 30,
+    backgroundColor: 'rgba(139, 195, 74, 0.05)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 195, 74, 0.2)',
+  },
+  analysisGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  analysisCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  analysisHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  analysisIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  analysisTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B6F45',
+  },
+  analysisValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  analysisConfidence: {
+    fontSize: 10,
+    color: '#666',
+  },
+  analysisSubtext: {
+    fontSize: 10,
+    color: '#999',
+  },
+  aiSuggestionContainer: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  aiSuggestionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginBottom: 4,
+  },
+  aiSuggestionText: {
+    fontSize: 13,
+    color: '#2E7D32',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  modelInfoContainer: {
+    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    borderRadius: 8,
+    padding: 8,
+  },
+  modelInfoText: {
+    fontSize: 10,
+    color: '#6B6F45',
+    textAlign: 'center',
+  },
+
   tagsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -547,10 +856,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(107, 111, 69, 0.05)',
     gap: 6,
   },
+  aiSuggestedTag: {
+    borderColor: 'rgba(76, 175, 80, 0.5)',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  },
   tagText: {
     fontSize: 12,
     fontWeight: '500',
     color: '#6B6F45',
+  },
+  aiSuggestedBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  aiSuggestedBadgeText: {
+    fontSize: 8,
+    color: '#FFF',
+    fontWeight: 'bold',
   },
   dateTimeSection: {
     marginBottom: 30,

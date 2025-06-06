@@ -17,10 +17,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ChatGPTService from '../services/chatGPTService';
-import { getTasks } from '../server/api'; // Добавляем импорт API
+import { getTasks } from '../server/api';
 import { ScreenProps } from '../types';
 import { Image } from 'react-native';
 import DinoImage from '../assets/dino.jpg';
+import { useTheme } from './ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -42,15 +43,18 @@ interface ChatMessage {
 }
 
 const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
+  const { theme } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userName, setUserName] = useState('Пользователь');
-  const [token, setToken] = useState<string | null>(null); // Добавляем состояние для токена
+  const [token, setToken] = useState<string | null>(null);
   const [chatService] = useState(() => new ChatGPTService());
   const scrollViewRef = useRef<ScrollView>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+
+  const styles = createThemedStyles(theme);
 
   // Форматирование даты и времени для отображения (как в HomeScreen)
   const formatDisplayDate = (dateString?: string) => {
@@ -360,7 +364,10 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={['#8BC34A', '#6B6F45']}
+      colors={theme.isDark ? 
+        [theme.colors.background, theme.colors.surface] : 
+        ['#8BC34A', '#6B6F45']
+      }
       style={styles.container}
     >
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
@@ -371,10 +378,13 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
             onPress={() => navigation.goBack()}
           >
             <LinearGradient
-              colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+              colors={theme.isDark ? 
+                [theme.colors.surface, theme.colors.card] : 
+                ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']
+              }
               style={styles.backButtonGradient}
             >
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
+              <Ionicons name="arrow-back" size={24} color={theme.isDark ? theme.colors.text : "#FFF"} />
             </LinearGradient>
           </TouchableOpacity>
           
@@ -397,10 +407,13 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <LinearGradient
-                  colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                  colors={theme.isDark ? 
+                    [theme.colors.surface, theme.colors.card] : 
+                    ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']
+                  }
                   style={styles.refreshButtonGradient}
                 >
-                  <Ionicons name="refresh" size={20} color="#FFF" />
+                  <Ionicons name="refresh" size={20} color={theme.isDark ? theme.colors.text : "#FFF"} />
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -410,7 +423,10 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
         {/* Chat Container */}
         <View style={styles.chatWrapper}>
           <LinearGradient
-            colors={['#FFFFFF', '#F8F9FA']}
+            colors={theme.isDark ? 
+              [theme.colors.surface, theme.colors.card] : 
+              ['#FFFFFF', '#F8F9FA']
+            }
             style={styles.chatContainer}
           >
             <ScrollView
@@ -429,15 +445,15 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                 >
                   <LinearGradient
                     colors={message.isUser 
-                      ? ['#8BC34A', '#6B6F45'] 
-                      : ['#FFFFFF', '#F8F9FA']
+                      ? (theme.isDark ? [theme.colors.primary, theme.colors.secondary] : ['#8BC34A', '#6B6F45'])
+                      : (theme.isDark ? [theme.colors.card, theme.colors.surface] : ['#FFFFFF', '#F8F9FA'])
                     }
                     style={styles.messageGradient}
                   >
                     <Text
                       style={[
                         styles.messageText,
-                        { color: message.isUser ? '#FFF' : '#333' },
+                        { color: message.isUser ? '#FFF' : theme.colors.text },
                       ]}
                     >
                       {message.text}
@@ -456,7 +472,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                     <Text
                       style={[
                         styles.timestamp,
-                        { color: message.isUser ? 'rgba(255,255,255,0.7)' : '#999' },
+                        { color: message.isUser ? 'rgba(255,255,255,0.7)' : theme.colors.textSecondary },
                       ]}
                     >
                       {message.timestamp.toLocaleTimeString('ru-RU', {
@@ -471,14 +487,17 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
               {isLoading && (
                 <View style={styles.loadingContainer}>
                   <LinearGradient
-                    colors={['#FFFFFF', '#F8F9FA']}
+                    colors={theme.isDark ? 
+                      [theme.colors.card, theme.colors.surface] : 
+                      ['#FFFFFF', '#F8F9FA']
+                    }
                     style={styles.loadingGradient}
                   >
                     <View style={styles.aiAvatar}>
                       <Image source={DinoImage} style={styles.aiAvatarImage} />
                     </View>
                     <View style={styles.loadingContent}>
-                      <ActivityIndicator size="small" color="#6B6F45" />
+                      <ActivityIndicator size="small" color={theme.colors.primary} />
                       <Text style={styles.loadingText}>AI думает...</Text>
                     </View>
                   </LinearGradient>
@@ -502,10 +521,13 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                       onPress={action.action}
                     >
                       <LinearGradient
-                        colors={['rgba(139, 195, 74, 0.1)', 'rgba(107, 111, 69, 0.1)']}
+                        colors={theme.isDark ? 
+                          [`${theme.colors.primary}20`, `${theme.colors.primary}10`] : 
+                          ['rgba(139, 195, 74, 0.1)', 'rgba(107, 111, 69, 0.1)']
+                        }
                         style={styles.quickActionGradient}
                       >
-                        <Ionicons name={action.icon as any} size={20} color="#6B6F45" />
+                        <Ionicons name={action.icon as any} size={20} color={theme.colors.primary} />
                         <Text style={styles.quickActionText}>{action.title}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
@@ -518,7 +540,10 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
                 <LinearGradient
-                  colors={['#F8F9FA', '#FFFFFF']}
+                  colors={theme.isDark ? 
+                    [theme.colors.background, theme.colors.surface] : 
+                    ['#F8F9FA', '#FFFFFF']
+                  }
                   style={styles.inputGradient}
                 >
                   <TextInput
@@ -526,7 +551,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                     value={inputText}
                     onChangeText={setInputText}
                     placeholder="Спроси что-нибудь о своих задачах..."
-                    placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                    placeholderTextColor={theme.colors.textSecondary}
                     multiline
                     maxLength={500}
                     returnKeyType="send"
@@ -538,7 +563,10 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                     disabled={!inputText.trim() || isLoading}
                   >
                     <LinearGradient
-                      colors={['#8BC34A', '#6B6F45']}
+                      colors={theme.isDark ? 
+                        [theme.colors.primary, theme.colors.secondary] : 
+                        ['#8BC34A', '#6B6F45']
+                      }
                       style={styles.sendButtonGradient}
                     >
                       <Ionicons name="send" size={20} color="#FFF" />
@@ -554,7 +582,8 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+// Функция создания стилей с поддержкой тем
+const createThemedStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -619,14 +648,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.text : '#FFF',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.isDark ? 
+      theme.colors.textSecondary : 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
   },
   chatWrapper: {
@@ -635,7 +665,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -664,7 +694,7 @@ const styles = StyleSheet.create({
   messageGradient: {
     padding: 14,
     borderRadius: 16,
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -713,7 +743,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontSize: 14,
     fontStyle: 'italic',
   },
@@ -721,12 +751,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(107, 111, 69, 0.1)',
+    borderTopColor: theme.colors.border,
   },
   quickActionsTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B6F45',
+    color: theme.colors.primary,
     marginBottom: 12,
   },
   quickActionsScroll: {
@@ -744,22 +774,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(107, 111, 69, 0.2)',
+    borderColor: theme.colors.border,
   },
   quickActionText: {
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontSize: 12,
     fontWeight: '500',
   },
   inputContainer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(107, 111, 69, 0.1)',
+    borderTopColor: theme.colors.border,
   },
   inputWrapper: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -771,12 +801,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: 'rgba(107, 111, 69, 0.2)',
+    borderColor: theme.colors.border,
   },
   textInput: {
     flex: 1,
     fontSize: 15,
-    color: '#333',
+    color: theme.colors.text,
     maxHeight: 100,
     marginRight: 12,
   },

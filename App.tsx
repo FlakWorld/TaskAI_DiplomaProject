@@ -16,6 +16,7 @@ import AIChatScreen from './screens/AIChatScreen';
 import { RootStackParamList } from "./types";
 import linking from "./server/linking";
 import PushNotification from "react-native-push-notification";
+import { ThemeProvider } from "./screens/ThemeContext";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -30,6 +31,7 @@ export default function App() {
       }
     }
     requestPermissions();
+    
     // Конфигурация уведомлений
     PushNotification.configure({
       onRegister: function (token: any) {
@@ -53,11 +55,11 @@ export default function App() {
     PushNotification.createChannel(
       {
         channelId: "tasks-channel",
-        channelName: "Напоминания о задачах", // Можно дать более понятное имя
+        channelName: "Напоминания о задачах",
         channelDescription: "Канал для уведомлений о ваших задачах",
         playSound: true,
         soundName: "default",
-        importance: 4, // Высокий приоритет уведомлений
+        importance: 4,
         vibrate: true,
       },
       (created: boolean) => console.log(`createChannel returned '${created}'`)
@@ -65,20 +67,22 @@ export default function App() {
   }, []);
 
   return (
-    <NavigationContainer linking={linking}>
-      <Stack.Navigator initialRouteName="Start" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Start" component={StartScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Task" component={CreationTask} />
-        <Stack.Screen name="EditTask" component={TaskDetail} />
-        <Stack.Screen name="EditTaskForm" component={EditTaskForm} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ headerShown: false }}/>
-        <Stack.Screen name="AIChat" component={AIChatScreen} options={{ headerShown: false }}/>
-      </Stack.Navigator>
-    </NavigationContainer>
+    <ThemeProvider>
+      <NavigationContainer linking={linking}>
+        <Stack.Navigator initialRouteName="Start" screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Start" component={StartScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="Task" component={CreationTask} />
+          <Stack.Screen name="EditTask" component={TaskDetail} />
+          <Stack.Screen name="EditTaskForm" component={EditTaskForm} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ headerShown: false }}/>
+          <Stack.Screen name="AIChat" component={AIChatScreen} options={{ headerShown: false }}/>
+        </Stack.Navigator>
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }

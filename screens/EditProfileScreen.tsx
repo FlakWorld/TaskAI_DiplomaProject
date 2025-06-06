@@ -19,6 +19,7 @@ import { API_URL } from "../server/api";
 import { RootStackParamList } from "../types";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useTheme } from "./ThemeContext";
 
 const CLOUD_NAME = "dvuwiugro";
 const UPLOAD_PRESET = "unsigned_preset";
@@ -26,6 +27,7 @@ const UPLOAD_PRESET = "unsigned_preset";
 type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, "EditProfile">;
 
 const EditProfileScreen = () => {
+  const { theme } = useTheme();
   const navigation = useNavigation<ProfileScreenNavigationProp>();
 
   const [name, setName] = useState("");
@@ -34,6 +36,8 @@ const EditProfileScreen = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+
+  const styles = createThemedStyles(theme);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -168,7 +172,7 @@ const EditProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F8FA" }}>
+    <SafeAreaView style={[{ flex: 1 }, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={styles.container}>
         {/* Кнопка "Назад" */}
         <TouchableOpacity
@@ -176,7 +180,7 @@ const EditProfileScreen = () => {
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#6B6F45" />
+          <Ionicons name="arrow-back" size={24} color={theme.colors.primary} />
           <Text style={styles.backButtonText}>Назад</Text>
         </TouchableOpacity>
 
@@ -189,16 +193,16 @@ const EditProfileScreen = () => {
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Icon name="user" size={50} color="#bbb" />
-              <Text style={{ color: "#bbb", marginTop: 5 }}>Выбрать аватар</Text>
+              <Icon name="user" size={50} color={theme.colors.textSecondary} />
+              <Text style={styles.avatarPlaceholderText}>Выбрать аватар</Text>
             </View>
           )}
         </TouchableOpacity>
 
         {uploading && (
-          <View style={{ marginBottom: 10, alignItems: "center" }}>
-            <Text>Загрузка аватара...</Text>
-            <ActivityIndicator size="small" color="#6B6F45" />
+          <View style={styles.uploadingContainer}>
+            <Text style={styles.uploadingText}>Загрузка аватара...</Text>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
           </View>
         )}
 
@@ -209,6 +213,7 @@ const EditProfileScreen = () => {
             value={name}
             onChangeText={setName}
             placeholder="Введите имя"
+            placeholderTextColor={theme.colors.textSecondary}
             autoCapitalize="words"
             editable={!uploading && !loading}
           />
@@ -219,12 +224,16 @@ const EditProfileScreen = () => {
             value={surname}
             onChangeText={setSurname}
             placeholder="Введите фамилию"
+            placeholderTextColor={theme.colors.textSecondary}
             autoCapitalize="words"
             editable={!uploading && !loading}
           />
 
           <TouchableOpacity
-            style={styles.saveButton}
+            style={[
+              styles.saveButton,
+              (loading || uploading) && styles.saveButtonDisabled
+            ]}
             onPress={saveProfile}
             disabled={loading || uploading}
           >
@@ -240,7 +249,8 @@ const EditProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+// Функция создания стилей с поддержкой тем
+const createThemedStyles = (theme: any) => StyleSheet.create({
   container: {
     padding: 20,
     alignItems: "center",
@@ -251,20 +261,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     marginBottom: 20,
-    paddingTop: 35,  // добавлен отступ сверху, чтобы кнопка не прилегала к краю
+    paddingTop: 35,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   backButtonText: {
-    color: "#6B6F45",
+    color: theme.colors.primary,
     fontSize: 16,
     marginLeft: 8,
+    fontWeight: "500",
   },
   avatarContainer: {
     marginBottom: 30,
-    borderWidth: 1,
-    borderColor: "#ccc",
+    borderWidth: 3,
+    borderColor: theme.colors.border,
     padding: 10,
     borderRadius: 70,
-    backgroundColor: "#fafafa",
+    backgroundColor: theme.colors.surface,
+    shadowColor: theme.colors.text,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   avatar: {
     width: 120,
@@ -272,38 +294,87 @@ const styles = StyleSheet.create({
     borderRadius: 60,
   },
   avatarPlaceholder: {
-    backgroundColor: "#eee",
+    backgroundColor: theme.colors.background,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    borderStyle: "dashed",
+  },
+  avatarPlaceholderText: {
+    color: theme.colors.textSecondary,
+    marginTop: 5,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  uploadingContainer: {
+    marginBottom: 10,
+    alignItems: "center",
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  uploadingText: {
+    color: theme.colors.text,
+    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: "500",
   },
   form: {
     width: "100%",
   },
   label: {
-    fontSize: 14,
-    color: "#444",
-    marginBottom: 6,
+    fontSize: 16,
+    color: theme.colors.text,
+    marginBottom: 8,
     fontWeight: "600",
+    marginLeft: 4,
   },
   input: {
-    backgroundColor: "#fff",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 20,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#ccc",
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    color: theme.colors.text,
+    shadowColor: theme.colors.text,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   saveButton: {
-    backgroundColor: "#6B6F45",
-    paddingVertical: 14,
-    borderRadius: 10,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
+    shadowColor: theme.colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+    marginTop: 10,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+    shadowOpacity: 0.1,
   },
   saveButtonText: {
-    color: "#fff",
-    fontSize: 16,
+    color: theme.isDark ? theme.colors.background : "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
 

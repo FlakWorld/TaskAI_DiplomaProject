@@ -18,8 +18,9 @@ import { ScreenProps, TASK_CATEGORIES } from "../types";
 import { createTask } from "../server/api";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { saveTaskPattern } from "../services/aiService";
-import { tensorflowLiteService } from "../services/tensorflowService"; // Новый импорт
+import { tensorflowLiteService } from "../services/tensorflowService";
 import { LinearGradient } from 'react-native-linear-gradient';
+import { useTheme } from "./ThemeContext";
 
 const { width, height } = Dimensions.get('window');
 
@@ -37,6 +38,7 @@ interface TaskAnalysis {
 }
 
 export default function CreationTask({ navigation }: ScreenProps<"Task">) {
+  const { theme } = useTheme();
   const [task, setTask] = useState("");
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
@@ -50,6 +52,8 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisAnim] = useState(new Animated.Value(0));
+
+  const styles = createThemedStyles(theme);
 
   useEffect(() => {
     const loadToken = async () => {
@@ -255,9 +259,9 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   // Функции для отображения результатов анализа ИИ
   const getSentimentColor = (sentiment: string) => {
     switch (sentiment) {
-      case 'positive': return '#4CAF50';
-      case 'negative': return '#F44336';
-      default: return '#FF9800';
+      case 'positive': return theme.colors.success;
+      case 'negative': return theme.colors.error;
+      default: return theme.colors.warning;
     }
   };
 
@@ -271,10 +275,10 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return '#F44336';
-      case 'medium': return '#FF9800';
-      case 'low': return '#4CAF50';
-      default: return '#9E9E9E';
+      case 'high': return theme.colors.error;
+      case 'medium': return theme.colors.warning;
+      case 'low': return theme.colors.success;
+      default: return theme.colors.textSecondary;
     }
   };
 
@@ -289,7 +293,10 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
 
   return (
     <LinearGradient
-      colors={['#8BC34A', '#6B6F45', '#4A5D23']}
+      colors={theme.isDark ? 
+        [theme.colors.background, theme.colors.surface, theme.colors.card] : 
+        ['#8BC34A', '#6B6F45', '#4A5D23']
+      }
       style={styles.container}
     >
       {/* Декоративные элементы */}
@@ -315,7 +322,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
               onPress={() => navigation.goBack()}
             >
               <View style={styles.backButtonContainer}>
-                <Ionicons name="arrow-back" size={20} color="#6B6F45" />
+                <Ionicons name="arrow-back" size={20} color={theme.colors.primary} />
               </View>
             </TouchableOpacity>
 
@@ -328,7 +335,10 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
           {/* Form */}
           <View style={styles.formContainer}>
             <LinearGradient
-              colors={['#FFFFFF', '#F8F9FA']}
+              colors={theme.isDark ? 
+                [theme.colors.surface, theme.colors.card] : 
+                ['#FFFFFF', '#F8F9FA']
+              }
               style={styles.formGradient}
             >
               {/* Task Input */}
@@ -336,20 +346,20 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                 <Text style={styles.sectionTitle}>Название задачи</Text>
                 <View style={styles.taskInputContainer}>
                   <View style={styles.taskIconContainer}>
-                    <Ionicons name="create-outline" size={20} color="#6B6F45" />
+                    <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <TextInput
                     style={styles.taskInput}
                     value={task}
                     onChangeText={setTask}
                     placeholder="Введите название (ИИ проанализирует автоматически)"
-                    placeholderTextColor="rgba(107, 111, 69, 0.5)"
+                    placeholderTextColor={theme.colors.textSecondary}
                     multiline
                     maxLength={100}
                   />
                   {isAnalyzing && (
                     <View style={styles.analyzingIndicator}>
-                      <ActivityIndicator size="small" color="#6B6F45" />
+                      <ActivityIndicator size="small" color={theme.colors.primary} />
                     </View>
                   )}
                 </View>
@@ -458,7 +468,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                         <Ionicons 
                           name={category.icon as any} 
                           size={16} 
-                          color={selectedTags.includes(category.name) ? category.color : '#6B6F45'} 
+                          color={selectedTags.includes(category.name) ? category.color : theme.colors.primary} 
                         />
                         <Text style={[
                           styles.tagText,
@@ -487,11 +497,14 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     onPress={showDatePicker}
                   >
                     <LinearGradient
-                      colors={['#F8F9FA', '#F0F2F5']}
+                      colors={theme.isDark ? 
+                        [theme.colors.card, theme.colors.background] : 
+                        ['#F8F9FA', '#F0F2F5']
+                      }
                       style={styles.dateTimeCardGradient}
                     >
                       <View style={styles.dateTimeIcon}>
-                        <Ionicons name="calendar" size={24} color="#6B6F45" />
+                        <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                       </View>
                       <Text style={styles.dateTimeLabel}>Дата</Text>
                       <Text style={styles.dateTimeValue}>{getDateDisplayText()}</Text>
@@ -503,11 +516,14 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     onPress={showTimePicker}
                   >
                     <LinearGradient
-                      colors={['#F8F9FA', '#F0F2F5']}
+                      colors={theme.isDark ? 
+                        [theme.colors.card, theme.colors.background] : 
+                        ['#F8F9FA', '#F0F2F5']
+                      }
                       style={styles.dateTimeCardGradient}
                     >
                       <View style={styles.dateTimeIcon}>
-                        <Ionicons name="time" size={24} color="#6B6F45" />
+                        <Ionicons name="time" size={24} color={theme.colors.primary} />
                       </View>
                       <Text style={styles.dateTimeLabel}>Время</Text>
                       <Text style={styles.dateTimeValue}>{formatTime(time)}</Text>
@@ -529,7 +545,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                       setTime(today);
                     }}
                   >
-                    <Ionicons name="sunny" size={16} color="#FF9800" />
+                    <Ionicons name="sunny" size={16} color={theme.colors.warning} />
                     <Text style={styles.quickActionText}>Утром</Text>
                   </TouchableOpacity>
 
@@ -542,7 +558,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                       setTime(today);
                     }}
                   >
-                    <Ionicons name="partly-sunny" size={16} color="#FFC107" />
+                    <Ionicons name="partly-sunny" size={16} color={theme.colors.accent} />
                     <Text style={styles.quickActionText}>Днем</Text>
                   </TouchableOpacity>
 
@@ -555,7 +571,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                       setTime(today);
                     }}
                   >
-                    <Ionicons name="moon" size={16} color="#9C27B0" />
+                    <Ionicons name="moon" size={16} color={theme.colors.secondary} />
                     <Text style={styles.quickActionText}>Вечером</Text>
                   </TouchableOpacity>
 
@@ -569,7 +585,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                       setTime(tomorrow);
                     }}
                   >
-                    <Ionicons name="calendar-outline" size={16} color="#2196F3" />
+                    <Ionicons name="calendar-outline" size={16} color={theme.colors.accent} />
                     <Text style={styles.quickActionText}>Завтра</Text>
                   </TouchableOpacity>
                 </View>
@@ -584,13 +600,16 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
             disabled={!task.trim()}
           >
             <LinearGradient
-              colors={task.trim() ? ['#4CAF50', '#45A049'] : ['#E0E0E0', '#BDBDBD']}
+              colors={task.trim() ? 
+                [theme.colors.success, theme.isDark ? theme.colors.success + 'DD' : '#45A049'] : 
+                [theme.colors.border, theme.colors.textSecondary]
+              }
               style={styles.saveButtonGradient}
             >
               <Ionicons 
                 name="checkmark-circle" 
                 size={24} 
-                color={task.trim() ? "#FFF" : "#999"} 
+                color={task.trim() ? "#FFF" : theme.colors.textSecondary} 
               />
               <Text style={[
                 styles.saveButtonText,
@@ -606,7 +625,8 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   );
 }
 
-const styles = StyleSheet.create({
+// Функция создания стилей с поддержкой тем
+const createThemedStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -615,7 +635,8 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}08` : 'rgba(255, 255, 255, 0.08)',
     top: -30,
     right: -30,
   },
@@ -624,7 +645,8 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}06` : 'rgba(255, 255, 255, 0.06)',
     bottom: 150,
     left: -30,
   },
@@ -633,7 +655,8 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}04` : 'rgba(255, 255, 255, 0.04)',
     top: height * 0.4,
     right: 20,
   },
@@ -658,10 +681,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: theme.isDark ? 
+      theme.colors.surface : 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -672,7 +696,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    color: "white",
+    color: theme.isDark ? theme.colors.text : "white",
     fontWeight: "bold",
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -680,7 +704,8 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.isDark ? 
+      theme.colors.textSecondary : 'rgba(255, 255, 255, 0.8)',
     marginTop: 4,
     fontWeight: '300',
   },
@@ -689,7 +714,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
@@ -707,21 +732,22 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B6F45',
+    color: theme.colors.primary,
     marginBottom: 12,
   },
   aiSuggestedText: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#4CAF50',
+    color: theme.colors.success,
   },
   taskInputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: theme.isDark ? 
+      theme.colors.background : '#F8F9FA',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: 'rgba(107, 111, 69, 0.2)',
+    borderColor: theme.colors.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
     minHeight: 80,
@@ -730,7 +756,8 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}20` : 'rgba(107, 111, 69, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -739,7 +766,7 @@ const styles = StyleSheet.create({
   taskInput: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
+    color: theme.colors.text,
     textAlignVertical: 'top',
     lineHeight: 22,
   },
@@ -750,18 +777,20 @@ const styles = StyleSheet.create({
   charCounter: {
     textAlign: 'right',
     fontSize: 12,
-    color: 'rgba(107, 111, 69, 0.6)',
+    color: theme.colors.textSecondary,
     marginTop: 8,
   },
 
   // AI Analysis Section Styles
   aiAnalysisSection: {
     marginBottom: 30,
-    backgroundColor: 'rgba(139, 195, 74, 0.05)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}15` : 'rgba(139, 195, 74, 0.05)',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(139, 195, 74, 0.2)',
+    borderColor: theme.isDark ? 
+      `${theme.colors.primary}30` : 'rgba(139, 195, 74, 0.2)',
   },
   analysisGrid: {
     flexDirection: 'row',
@@ -772,12 +801,12 @@ const styles = StyleSheet.create({
   analysisCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
-    shadowColor: '#000',
+    borderLeftColor: theme.colors.success,
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -795,24 +824,26 @@ const styles = StyleSheet.create({
   analysisTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B6F45',
+    color: theme.colors.primary,
   },
   analysisValue: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   analysisConfidence: {
     fontSize: 10,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   analysisSubtext: {
     fontSize: 10,
-    color: '#999',
+    color: theme.colors.textSecondary,
+    opacity: 0.8,
   },
   aiSuggestionContainer: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.success}20` : 'rgba(76, 175, 80, 0.1)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -820,23 +851,24 @@ const styles = StyleSheet.create({
   aiSuggestionTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: theme.colors.success,
     marginBottom: 4,
   },
   aiSuggestionText: {
     fontSize: 13,
-    color: '#2E7D32',
+    color: theme.isDark ? theme.colors.success : '#2E7D32',
     lineHeight: 18,
     fontStyle: 'italic',
   },
   modelInfoContainer: {
-    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}20` : 'rgba(107, 111, 69, 0.1)',
     borderRadius: 8,
     padding: 8,
   },
   modelInfoText: {
     fontSize: 10,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     textAlign: 'center',
   },
 
@@ -852,21 +884,24 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(107, 111, 69, 0.2)',
-    backgroundColor: 'rgba(107, 111, 69, 0.05)',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}15` : 'rgba(107, 111, 69, 0.05)',
     gap: 6,
   },
   aiSuggestedTag: {
-    borderColor: 'rgba(76, 175, 80, 0.5)',
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderColor: theme.isDark ? 
+      `${theme.colors.success}50` : 'rgba(76, 175, 80, 0.5)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.success}20` : 'rgba(76, 175, 80, 0.1)',
   },
   tagText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#6B6F45',
+    color: theme.colors.primary,
   },
   aiSuggestedBadge: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.colors.success,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -888,7 +923,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
@@ -904,20 +939,21 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}20` : 'rgba(107, 111, 69, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   dateTimeLabel: {
     fontSize: 12,
-    color: 'rgba(107, 111, 69, 0.7)',
+    color: theme.colors.textSecondary,
     fontWeight: '500',
     marginBottom: 4,
   },
   dateTimeValue: {
     fontSize: 14,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -932,30 +968,32 @@ const styles = StyleSheet.create({
   quickAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(107, 111, 69, 0.08)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}15` : 'rgba(107, 111, 69, 0.08)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(107, 111, 69, 0.15)',
+    borderColor: theme.isDark ? 
+      `${theme.colors.primary}30` : 'rgba(107, 111, 69, 0.15)',
     gap: 6,
   },
   quickActionText: {
     fontSize: 12,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontWeight: '500',
   },
   saveButton: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#4CAF50',
+    shadowColor: theme.colors.success,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
   },
   saveButtonDisabled: {
-    shadowColor: '#E0E0E0',
+    shadowColor: theme.colors.border,
     shadowOpacity: 0.1,
   },
   saveButtonGradient: {
@@ -972,6 +1010,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   saveButtonTextDisabled: {
-    color: "#999",
+    color: theme.colors.textSecondary,
   },
 });

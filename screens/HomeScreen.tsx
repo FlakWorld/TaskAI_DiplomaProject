@@ -20,12 +20,13 @@ import { getTasks, deleteTask } from "../server/api";
 import { ScreenProps, TASK_CATEGORIES } from "../types";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { getSuggestedTask, saveTaskPattern, rejectTaskPattern } from "../services/aiService";
-import { tensorflowLiteService } from "../services/tensorflowService"; // Новый импорт
+import { tensorflowLiteService } from "../services/tensorflowService";
 import { Image } from "react-native";
 import DinoImage from "../assets/dino.jpg";
 import PushNotification from "react-native-push-notification";
 import { LinearGradient } from 'react-native-linear-gradient';
 import { PermissionsAndroid } from "react-native";
+import { useTheme } from "./ThemeContext";
 
 const { width, height } = Dimensions.get('window');
 
@@ -51,11 +52,12 @@ type Task = {
   };
 };
 
-// Обновленная AI Assistant Card с аналитикой
-const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any }> = ({ 
+// Обновленная AI Assistant Card с аналитикой и поддержкой тем
+const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, theme: any }> = ({ 
   navigation, 
   tasks, 
-  aiStats 
+  aiStats,
+  theme 
 }) => {
   const completedTasks = tasks.filter(t => t.status === 'выполнено');
   const inProgressTasks = tasks.filter(t => t.status === 'в прогрессе');
@@ -105,6 +107,8 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any }
     }
   };
 
+  const styles = createThemedStyles(theme);
+
   return (
     <TouchableOpacity
       style={styles.aiAssistantCard}
@@ -112,7 +116,10 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any }
       activeOpacity={0.8}
     >
       <LinearGradient
-        colors={['#FFFFFF', '#F8F9FA']}
+        colors={theme.isDark ? 
+          [theme.colors.surface, theme.colors.card] : 
+          ['#FFFFFF', '#F8F9FA']
+        }
         style={styles.aiAssistantGradient}
       >
         <View style={styles.aiAssistantHeader}>
@@ -125,10 +132,12 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any }
           </View>
           <View style={styles.aiAssistantStats}>
             <View style={[styles.completionCircle, { 
-              borderColor: completionRate >= 70 ? '#4CAF50' : completionRate >= 40 ? '#FF9800' : '#FF5722' 
+              borderColor: completionRate >= 70 ? theme.colors.success : 
+                          completionRate >= 40 ? theme.colors.warning : theme.colors.error
             }]}>
               <Text style={[styles.completionText, { 
-                color: completionRate >= 70 ? '#4CAF50' : completionRate >= 40 ? '#FF9800' : '#FF5722' 
+                color: completionRate >= 70 ? theme.colors.success : 
+                       completionRate >= 40 ? theme.colors.warning : theme.colors.error
               }]}>
                 {completionRate}%
               </Text>
@@ -161,100 +170,108 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any }
         
         <View style={styles.aiAssistantActions}>
           <View style={styles.aiQuickAction}>
-            <Ionicons name="analytics-outline" size={16} color="#6B6F45" />
+            <Ionicons name="analytics-outline" size={16} color={theme.colors.primary} />
             <Text style={styles.aiQuickActionText}>TensorFlow Lite</Text>
           </View>
           <View style={styles.aiQuickAction}>
-            <Ionicons name="brain-outline" size={16} color="#6B6F45" />
+            <Ionicons name="brain-outline" size={16} color={theme.colors.primary} />
             <Text style={styles.aiQuickActionText}>MobileBERT</Text>
           </View>
           <View style={styles.aiQuickAction}>
-            <Ionicons name="flash-outline" size={16} color="#6B6F45" />
+            <Ionicons name="flash-outline" size={16} color={theme.colors.primary} />
             <Text style={styles.aiQuickActionText}>Анализ</Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color="#6B6F45" style={styles.aiChevron} />
+          <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} style={styles.aiChevron} />
         </View>
       </LinearGradient>
     </TouchableOpacity>
   );
 };
 
-// Enhanced Menu with AI
-const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogout }: any) => (
-  <Modal
-    transparent={true}
-    visible={isMenuVisible}
-    onRequestClose={() => setMenuVisible(false)}
-    animationType="fade"
-  >
-    <TouchableOpacity
-      style={styles.menuOverlay}
-      activeOpacity={1}
-      onPress={() => setMenuVisible(false)}
+// Enhanced Menu with AI and Theme Support
+const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogout, theme }: any) => {
+  const styles = createThemedStyles(theme);
+  
+  return (
+    <Modal
+      transparent={true}
+      visible={isMenuVisible}
+      onRequestClose={() => setMenuVisible(false)}
+      animationType="fade"
     >
-      <View style={styles.menu}>
-        <LinearGradient
-          colors={['#FFF', '#F8F9FA']}
-          style={styles.menuGradient}
-        >
-          {/* AI Помощник */}
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setMenuVisible(false);
-              navigation.navigate('AIChat');
-            }}
+      <TouchableOpacity
+        style={styles.menuOverlay}
+        activeOpacity={1}
+        onPress={() => setMenuVisible(false)}
+      >
+        <View style={styles.menu}>
+          <LinearGradient
+            colors={theme.isDark ? 
+              [theme.colors.surface, theme.colors.card] : 
+              ['#FFF', '#F8F9FA']
+            }
+            style={styles.menuGradient}
           >
-            <View style={[styles.menuIconContainer, styles.aiMenuIcon]}>
-              <Image source={DinoImage} style={styles.menuAIImage} />
-            </View>
-            <Text style={styles.menuText}>AI Помощник</Text>
-            <View style={styles.aiMenuBadge}>
-              <Text style={styles.aiMenuBadgeText}>TF LITE</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#6B6F45" />
-          </TouchableOpacity>
-          
-          <View style={styles.menuDivider} />
-          
-          {/* Профиль */}
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setMenuVisible(false);
-              navigation.navigate('Profile');
-            }}
-          >
-            <View style={styles.menuIconContainer}>
-              <Ionicons name="person-outline" size={20} color="#6B6F45" />
-            </View>
-            <Text style={styles.menuText}>Профиль</Text>
-            <Ionicons name="chevron-forward" size={16} color="#6B6F45" />
-          </TouchableOpacity>
-          
-          <View style={styles.menuDivider} />
-          
-          {/* Выйти */}
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setMenuVisible(false);
-              handleLogout();
-            }}
-          >
-            <View style={[styles.menuIconContainer, styles.logoutIconContainer]}>
-              <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
-            </View>
-            <Text style={[styles.menuText, styles.logoutText]}>Выйти</Text>
-            <Ionicons name="chevron-forward" size={16} color="#FF6B6B" />
-          </TouchableOpacity>
-        </LinearGradient>
-      </View>
-    </TouchableOpacity>
-  </Modal>
-);
+            {/* AI Помощник */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate('AIChat');
+              }}
+            >
+              <View style={[styles.menuIconContainer, styles.aiMenuIcon]}>
+                <Image source={DinoImage} style={styles.menuAIImage} />
+              </View>
+              <Text style={styles.menuText}>AI Помощник</Text>
+              <View style={styles.aiMenuBadge}>
+                <Text style={styles.aiMenuBadgeText}>TF LITE</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
+            </TouchableOpacity>
+            
+            <View style={styles.menuDivider} />
+            
+            {/* Профиль */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate('Profile');
+              }}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="person-outline" size={20} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.menuText}>Профиль</Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
+            </TouchableOpacity>
+            
+            <View style={styles.menuDivider} />
+            
+            {/* Выйти */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                handleLogout();
+              }}
+            >
+              <View style={[styles.menuIconContainer, styles.logoutIconContainer]}>
+                <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
+              </View>
+              <Text style={[styles.menuText, styles.logoutText]}>Выйти</Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.error} />
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
 
 export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
+  const { theme } = useTheme();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -271,6 +288,8 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   // Новые состояния для фильтрации
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+
+  const styles = createThemedStyles(theme);
 
   // Инициализация TensorFlow Lite
   useEffect(() => {
@@ -762,12 +781,12 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   };
 
   const getPriorityColor = (priority?: string) => {
-    if (!priority) return '#9E9E9E';
+    if (!priority) return theme.colors.textSecondary;
     switch (priority) {
-      case 'high': return '#F44336';
-      case 'medium': return '#FF9800';
-      case 'low': return '#4CAF50';
-      default: return '#9E9E9E';
+      case 'high': return theme.colors.error;
+      case 'medium': return theme.colors.warning;
+      case 'low': return theme.colors.success;
+      default: return theme.colors.textSecondary;
     }
   };
 
@@ -789,7 +808,10 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={item.status === "выполнено" ? ['#E8F5E8', '#F0F8F0'] : ['#FFFFFF', '#F8F9FA']}
+          colors={item.status === "выполнено" ? 
+            (theme.isDark ? [theme.colors.card, theme.colors.surface] : ['#E8F5E8', '#F0F8F0']) : 
+            (theme.isDark ? [theme.colors.surface, theme.colors.card] : ['#FFFFFF', '#F8F9FA'])
+          }
           style={styles.taskGradient}
         >
           <View style={styles.taskLeft}>
@@ -797,7 +819,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
             <View style={[
               styles.statusIndicator,
               { backgroundColor: item.analysis ? getPriorityColor(item.analysis.priority) : 
-                (item.status === "выполнено" ? '#4CAF50' : '#FF9800') }
+                (item.status === "выполнено" ? theme.colors.success : theme.colors.warning) }
             ]} />
             
             <View style={styles.taskContent}>
@@ -835,9 +857,9 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                         <Ionicons 
                           name={category?.icon as any || 'pricetag'} 
                           size={10} 
-                          color={category?.color || '#6B6F45'} 
+                          color={category?.color || theme.colors.primary} 
                         />
-                        <Text style={[styles.taskTagText, { color: category?.color || '#6B6F45' }]}>
+                        <Text style={[styles.taskTagText, { color: category?.color || theme.colors.primary }]}>
                           {tag}
                         </Text>
                       </View>
@@ -864,13 +886,13 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               <View style={styles.taskMeta}>
                 {item.date && (
                   <View style={styles.metaItem}>
-                    <Ionicons name="calendar-outline" size={12} color="#6B6F45" />
+                    <Ionicons name="calendar-outline" size={12} color={theme.colors.primary} />
                     <Text style={styles.taskDate}>{item.date}</Text>
                   </View>
                 )}
                 {item.time && (
                   <View style={styles.metaItem}>
-                    <Ionicons name="time-outline" size={12} color="#6B6F45" />
+                    <Ionicons name="time-outline" size={12} color={theme.colors.primary} />
                     <Text style={styles.taskTime}>{item.time}</Text>
                   </View>
                 )}
@@ -898,7 +920,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               style={styles.deleteButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+              <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -908,16 +930,27 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Инициализация ИИ...</Text>
-      </View>
+      <LinearGradient
+        colors={theme.isDark ? 
+          [theme.colors.background, theme.colors.surface] : 
+          ['#8BC34A', '#6B6F45']
+        }
+        style={styles.container}
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Инициализация ИИ...</Text>
+        </View>
+      </LinearGradient>
     );
   }
 
   return (
     <LinearGradient
-      colors={['#8BC34A', '#6B6F45']}
+      colors={theme.isDark ? 
+        [theme.colors.background, theme.colors.surface] : 
+        ['#8BC34A', '#6B6F45']
+      }
       style={styles.container}
     >
       {/* Header */}
@@ -927,10 +960,13 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           style={styles.menuButton}
         >
           <LinearGradient
-            colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+            colors={theme.isDark ? 
+              [theme.colors.surface, theme.colors.card] : 
+              ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']
+            }
             style={styles.menuButtonGradient}
           >
-            <Ionicons name="menu" size={24} color="#FFF" />
+            <Ionicons name="menu" size={24} color={theme.isDark ? theme.colors.text : "#FFF"} />
           </LinearGradient>
         </TouchableOpacity>
         
@@ -947,10 +983,13 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           onPress={() => setShowCategoryFilter(true)}
         >
           <LinearGradient
-            colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+            colors={theme.isDark ? 
+              [theme.colors.surface, theme.colors.card] : 
+              ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']
+            }
             style={styles.filterButtonGradient}
           >
-            <Ionicons name="funnel-outline" size={20} color="#FFF" />
+            <Ionicons name="funnel-outline" size={20} color={theme.isDark ? theme.colors.text : "#FFF"} />
             {selectedCategory && (
               <View style={styles.filterIndicator} />
             )}
@@ -966,7 +1005,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               Фильтр: {selectedCategory}
             </Text>
             <TouchableOpacity onPress={() => setSelectedCategory(null)}>
-              <Ionicons name="close" size={16} color="#FFF" />
+              <Ionicons name="close" size={16} color={theme.isDark ? theme.colors.text : "#FFF"} />
             </TouchableOpacity>
           </View>
         </View>
@@ -975,33 +1014,39 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
       {/* Search */}
       <View style={styles.searchContainer}>
         <LinearGradient
-          colors={['#FFFFFF', '#F8F9FA']}
+          colors={theme.isDark ? 
+            [theme.colors.surface, theme.colors.card] : 
+            ['#FFFFFF', '#F8F9FA']
+          }
           style={styles.searchGradient}
         >
-          <Ionicons name="search" size={20} color="#6B6F45" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color={theme.colors.primary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Поиск задач..."
-            placeholderTextColor="rgba(107, 111, 69, 0.6)"
+            placeholderTextColor={theme.colors.textSecondary}
             value={search}
             onChangeText={setSearch}
           />
           {search ? (
             <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={20} color="#6B6F45" />
+              <Ionicons name="close-circle" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
           ) : null}
         </LinearGradient>
       </View>
 
       {/* AI Assistant Card with enhanced analytics */}
-      <AIAssistantCard navigation={navigation} tasks={tasks} aiStats={aiStats} />
+      <AIAssistantCard navigation={navigation} tasks={tasks} aiStats={aiStats} theme={theme} />
 
       {/* AI Suggestion */}
       {suggestedTask && (
         <Animated.View style={[styles.suggestionContainer, { opacity: fadeAnim }]}>
           <LinearGradient
-            colors={['#FFF', '#F8F9FA']}
+            colors={theme.isDark ? 
+              [theme.colors.surface, theme.colors.card] : 
+              ['#FFF', '#F8F9FA']
+            }
             style={styles.suggestionGradient}
           >
             <View style={styles.suggestionHeader}>
@@ -1035,7 +1080,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                   setSuggestedTask(null);
                 }}
               >
-                <Ionicons name="close" size={16} color="#FF6B6B" />
+                <Ionicons name="close" size={16} color={theme.colors.error} />
                 <Text style={styles.rejectButtonText}>Отклонить</Text>
               </TouchableOpacity>
             </View>
@@ -1053,14 +1098,14 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={["#FFF"]}
-            tintColor="#FFF"
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="clipboard-outline" size={60} color="rgba(255,255,255,0.6)" />
+              <Ionicons name="clipboard-outline" size={60} color={theme.colors.textSecondary} />
             </View>
             <Text style={styles.emptyTitle}>
               {search || selectedCategory ? "Ничего не найдено" : "Пока нет задач"}
@@ -1079,10 +1124,13 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         onPress={() => navigation.navigate("Task", { id: undefined })}
       >
         <LinearGradient
-          colors={['#FFF', '#F8F9FA']}
+          colors={theme.isDark ? 
+            [theme.colors.surface, theme.colors.card] : 
+            ['#FFF', '#F8F9FA']
+          }
           style={styles.addButtonGradient}
         >
-          <Ionicons name="add" size={24} color="#6B6F45" />
+          <Ionicons name="add" size={24} color={theme.colors.primary} />
           <Text style={styles.addButtonText}>Новая задача</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -1101,7 +1149,10 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         >
           <View style={styles.categoryModal}>
             <LinearGradient
-              colors={['#FFF', '#F8F9FA']}
+              colors={theme.isDark ? 
+                [theme.colors.surface, theme.colors.card] : 
+                ['#FFF', '#F8F9FA']
+              }
               style={styles.categoryModalGradient}
             >
               <Text style={styles.categoryModalTitle}>Фильтр по категориям</Text>
@@ -1113,7 +1164,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                   setShowCategoryFilter(false);
                 }}
               >
-                <Ionicons name="apps" size={20} color={!selectedCategory ? "#4CAF50" : "#6B6F45"} />
+                <Ionicons name="apps" size={20} color={!selectedCategory ? theme.colors.success : theme.colors.primary} />
                 <Text style={[styles.categoryOptionText, !selectedCategory && styles.categoryOptionTextActive]}>
                   Все задачи
                 </Text>
@@ -1131,7 +1182,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                   <Ionicons 
                     name={category.icon as any} 
                     size={20} 
-                    color={selectedCategory === category.name ? "#4CAF50" : category.color} 
+                    color={selectedCategory === category.name ? theme.colors.success : category.color} 
                   />
                   <Text style={[
                     styles.categoryOptionText,
@@ -1152,12 +1203,14 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         setMenuVisible={setMenuVisible}
         navigation={navigation}
         handleLogout={handleLogout}
+        theme={theme}
       />
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+// Функция создания стилей с поддержкой тем
+const createThemedStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -1167,7 +1220,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.text : '#FFF',
     marginTop: 10,
     fontSize: 16,
   },
@@ -1197,18 +1250,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#FFF",
+    color: theme.isDark ? theme.colors.text : "#FFF",
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
   tasksCount: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.isDark ? theme.colors.textSecondary : 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
   },
   analyzingIndicator: {
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: theme.isDark ? theme.colors.text : 'rgba(255, 255, 255, 0.9)',
     fontStyle: 'italic',
   },
   filterButton: {
@@ -1231,7 +1284,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FF5722',
+    backgroundColor: theme.colors.error,
   },
   activeFilterContainer: {
     paddingHorizontal: 20,
@@ -1240,7 +1293,7 @@ const styles = StyleSheet.create({
   activeFilter: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: theme.isDark ? `${theme.colors.primary}40` : 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -1248,7 +1301,7 @@ const styles = StyleSheet.create({
   },
   activeFilterText: {
     flex: 1,
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.text : '#FFF',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1257,7 +1310,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 15,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -1275,7 +1328,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
+    color: theme.colors.text,
   },
   
   // Enhanced AI Assistant Card Styles
@@ -1284,7 +1337,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -1316,12 +1369,12 @@ const styles = StyleSheet.create({
   aiAssistantTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   aiAssistantSubtitle: {
     fontSize: 14,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontWeight: '500',
   },
   aiAssistantStats: {
@@ -1334,7 +1387,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.surface,
   },
   completionText: {
     fontSize: 12,
@@ -1342,7 +1395,7 @@ const styles = StyleSheet.create({
   },
   aiAssistantInsight: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
     marginBottom: 16,
     lineHeight: 20,
   },
@@ -1351,7 +1404,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 16,
-    backgroundColor: 'rgba(139, 195, 74, 0.05)',
+    backgroundColor: theme.isDark ? `${theme.colors.primary}15` : 'rgba(139, 195, 74, 0.05)',
     paddingVertical: 12,
     borderRadius: 12,
   },
@@ -1365,11 +1418,11 @@ const styles = StyleSheet.create({
   aiAnalyticNumber: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#6B6F45',
+    color: theme.colors.primary,
   },
   aiAnalyticLabel: {
     fontSize: 10,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     opacity: 0.8,
   },
   aiAssistantActions: {
@@ -1380,7 +1433,7 @@ const styles = StyleSheet.create({
   aiQuickAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(139, 195, 74, 0.1)',
+    backgroundColor: theme.isDark ? `${theme.colors.primary}20` : 'rgba(139, 195, 74, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1388,7 +1441,7 @@ const styles = StyleSheet.create({
   },
   aiQuickActionText: {
     fontSize: 10,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontWeight: '500',
   },
   aiChevron: {
@@ -1397,9 +1450,9 @@ const styles = StyleSheet.create({
 
   // Enhanced Menu Styles
   aiMenuIcon: {
-    backgroundColor: 'rgba(139, 195, 74, 0.1)',
+    backgroundColor: theme.isDark ? `${theme.colors.primary}20` : 'rgba(139, 195, 74, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 195, 74, 0.3)',
+    borderColor: theme.isDark ? `${theme.colors.primary}30` : 'rgba(139, 195, 74, 0.3)',
   },
   menuAIImage: {
     width: 20,
@@ -1408,7 +1461,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   aiMenuBadge: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.colors.success,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1438,7 +1491,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   aiAnalysisContainer: {
-    backgroundColor: 'rgba(139, 195, 74, 0.08)',
+    backgroundColor: theme.isDark ? `${theme.colors.primary}15` : 'rgba(139, 195, 74, 0.08)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1446,7 +1499,7 @@ const styles = StyleSheet.create({
   },
   aiAnalysisText: {
     fontSize: 11,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontWeight: '500',
   },
 
@@ -1456,7 +1509,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -1488,16 +1541,16 @@ const styles = StyleSheet.create({
   suggestionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#6B6F45',
+    color: theme.colors.primary,
   },
   suggestionSubtitle: {
     fontSize: 12,
-    color: 'rgba(107, 111, 69, 0.6)',
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   suggestionText: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 16,
     lineHeight: 22,
   },
@@ -1507,7 +1560,7 @@ const styles = StyleSheet.create({
   },
   acceptButton: {
     flex: 1,
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.colors.success,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1522,18 +1575,18 @@ const styles = StyleSheet.create({
   },
   rejectButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    backgroundColor: theme.isDark ? `${theme.colors.error}20` : 'rgba(255, 107, 107, 0.1)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderColor: theme.isDark ? `${theme.colors.error}30` : 'rgba(255, 107, 107, 0.3)',
     gap: 6,
   },
   rejectButtonText: {
-    color: '#FF6B6B',
+    color: theme.colors.error,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -1547,7 +1600,7 @@ const styles = StyleSheet.create({
   task: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -1573,26 +1626,20 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginRight: 12,
   },
-  statusInProgress: {
-    backgroundColor: '#FF9800',
-  },
-  statusCompleted: {
-    backgroundColor: '#4CAF50',
-  },
   taskContent: {
     flex: 1,
   },
   taskTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: theme.colors.text,
     marginBottom: 6,
     lineHeight: 20,
     flex: 1,
   },
   taskTitleCompleted: {
     textDecorationLine: 'line-through',
-    color: 'rgba(51, 51, 51, 0.6)',
+    color: theme.colors.textSecondary,
   },
   taskTags: {
     flexDirection: 'row',
@@ -1614,7 +1661,7 @@ const styles = StyleSheet.create({
   },
   moreTagsText: {
     fontSize: 10,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontWeight: '500',
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -1631,12 +1678,12 @@ const styles = StyleSheet.create({
   },
   taskDate: {
     fontSize: 12,
-    color: "#6B6F45",
+    color: theme.colors.primary,
     fontWeight: '500',
   },
   taskTime: {
     fontSize: 12,
-    color: "#6B6F45",
+    color: theme.colors.primary,
     fontWeight: '500',
   },
   taskRight: {
@@ -1651,27 +1698,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusBadgeProgress: {
-    backgroundColor: 'rgba(255, 152, 0, 0.15)',
+    backgroundColor: theme.isDark ? `${theme.colors.warning}20` : 'rgba(255, 152, 0, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 152, 0, 0.3)',
+    borderColor: theme.isDark ? `${theme.colors.warning}30` : 'rgba(255, 152, 0, 0.3)',
   },
   statusBadgeCompleted: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    backgroundColor: theme.isDark ? `${theme.colors.success}20` : 'rgba(76, 175, 80, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
+    borderColor: theme.isDark ? `${theme.colors.success}30` : 'rgba(76, 175, 80, 0.3)',
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FF9800',
+    color: theme.colors.warning,
   },
   statusTextCompleted: {
-    color: '#4CAF50',
+    color: theme.colors.success,
   },
   deleteButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    backgroundColor: theme.isDark ? `${theme.colors.error}20` : 'rgba(255, 107, 107, 0.1)',
   },
   addButton: {
     position: 'absolute',
@@ -1680,7 +1727,7 @@ const styles = StyleSheet.create({
     right: 20,
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -1697,7 +1744,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#6B6F45",
+    color: theme.colors.primary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -1707,16 +1754,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyTitle: {
-    color: "rgba(255, 255, 255, 0.9)",
+    color: theme.colors.textSecondary,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
   },
   emptySubtitle: {
-    color: "rgba(255, 255, 255, 0.7)",
+    color: theme.colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+    opacity: 0.8,
   },
   modalOverlay: {
     flex: 1,
@@ -1730,7 +1778,7 @@ const styles = StyleSheet.create({
     maxWidth: 300,
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -1742,7 +1790,7 @@ const styles = StyleSheet.create({
   categoryModalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -1756,18 +1804,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   categoryOptionActive: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    backgroundColor: theme.isDark ? `${theme.colors.success}20` : 'rgba(76, 175, 80, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
+    borderColor: theme.isDark ? `${theme.colors.success}30` : 'rgba(76, 175, 80, 0.3)',
   },
   categoryOptionText: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text,
     fontWeight: '500',
   },
   categoryOptionTextActive: {
-    color: '#4CAF50',
+    color: theme.colors.success,
     fontWeight: '600',
   },
   menuOverlay: {
@@ -1781,7 +1829,7 @@ const styles = StyleSheet.create({
     marginRight: 60,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -1801,25 +1849,25 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    backgroundColor: theme.isDark ? `${theme.colors.primary}20` : 'rgba(107, 111, 69, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   logoutIconContainer: {
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    backgroundColor: theme.isDark ? `${theme.colors.error}20` : 'rgba(255, 107, 107, 0.1)',
   },
   menuText: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
+    color: theme.colors.text,
     fontWeight: '500',
   },
   logoutText: {
-    color: "#FF6B6B",
+    color: theme.colors.error,
   },
   menuDivider: {
     height: 1,
-    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    backgroundColor: theme.colors.border,
     marginHorizontal: 20,
   },
 });

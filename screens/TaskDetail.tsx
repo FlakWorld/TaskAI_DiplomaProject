@@ -16,6 +16,7 @@ import { getTaskById, updateTaskStatus, deleteTask } from "../server/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from 'react-native-linear-gradient';
+import { useTheme } from "./ThemeContext";
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,12 +30,15 @@ type Task = {
 };
 
 export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask">) {
+  const { theme } = useTheme();
   const { id } = route.params || {};
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
+
+  const styles = createThemedStyles(theme);
 
   // Анимация появления
   useEffect(() => {
@@ -176,16 +180,19 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
   };
 
   const getStatusColor = () => {
-    return task?.status === "выполнено" ? "#4CAF50" : "#FF9800";
+    return task?.status === "выполнено" ? theme.colors.success : theme.colors.warning;
   };
 
   if (loading) {
     return (
       <LinearGradient
-        colors={['#8BC34A', '#6B6F45']}
+        colors={theme.isDark ? 
+          [theme.colors.background, theme.colors.surface] : 
+          ['#8BC34A', '#6B6F45']
+        }
         style={styles.loadingContainer}
       >
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Загрузка задачи...</Text>
       </LinearGradient>
     );
@@ -194,10 +201,13 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
   if (!task) {
     return (
       <LinearGradient
-        colors={['#8BC34A', '#6B6F45']}
+        colors={theme.isDark ? 
+          [theme.colors.background, theme.colors.surface] : 
+          ['#8BC34A', '#6B6F45']
+        }
         style={styles.errorContainer}
       >
-        <Ionicons name="alert-circle-outline" size={60} color="rgba(255,255,255,0.8)" />
+        <Ionicons name="alert-circle-outline" size={60} color={theme.colors.textSecondary} />
         <Text style={styles.errorText}>Задача не найдена</Text>
         <TouchableOpacity 
           style={styles.backToHomeButton}
@@ -211,7 +221,10 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
 
   return (
     <LinearGradient
-      colors={['#8BC34A', '#6B6F45', '#4A5D23']}
+      colors={theme.isDark ? 
+        [theme.colors.background, theme.colors.surface, theme.colors.card] : 
+        ['#8BC34A', '#6B6F45', '#4A5D23']
+      }
       style={styles.container}
     >
       {/* Декоративные элементы */}
@@ -236,7 +249,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
               onPress={() => navigation.goBack()}
             >
               <View style={styles.backButtonContainer}>
-                <Ionicons name="arrow-back" size={20} color="#6B6F45" />
+                <Ionicons name="arrow-back" size={20} color={theme.colors.primary} />
               </View>
             </TouchableOpacity>
             
@@ -247,7 +260,10 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
           {/* Task Card */}
           <View style={styles.taskCard}>
             <LinearGradient
-              colors={['#FFFFFF', '#F8F9FA']}
+              colors={theme.isDark ? 
+                [theme.colors.surface, theme.colors.card] : 
+                ['#FFFFFF', '#F8F9FA']
+              }
               style={styles.taskCardGradient}
             >
               {/* Status Badge */}
@@ -282,9 +298,9 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                           <Ionicons 
                             name={category?.icon as any || 'pricetag'} 
                             size={12} 
-                            color={category?.color || '#6B6F45'} 
+                            color={category?.color || theme.colors.primary} 
                           />
-                          <Text style={[styles.taskTagText, { color: category?.color || '#6B6F45' }]}>
+                          <Text style={[styles.taskTagText, { color: category?.color || theme.colors.primary }]}>
                             {tag}
                           </Text>
                         </View>
@@ -298,7 +314,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
               <View style={styles.detailsContainer}>
                 <View style={styles.detailRow}>
                   <View style={styles.detailIcon}>
-                    <Ionicons name="calendar-outline" size={20} color="#6B6F45" />
+                    <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Дата</Text>
@@ -308,7 +324,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
 
                 <View style={styles.detailRow}>
                   <View style={styles.detailIcon}>
-                    <Ionicons name="time-outline" size={20} color="#6B6F45" />
+                    <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Время</Text>
@@ -318,7 +334,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
 
                 <View style={styles.detailRow}>
                   <View style={styles.detailIcon}>
-                    <Ionicons name="flag-outline" size={20} color="#6B6F45" />
+                    <Ionicons name="flag-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Статус</Text>
@@ -339,7 +355,10 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
               onPress={toggleTaskStatus}
             >
               <LinearGradient
-                colors={task.status === "выполнено" ? ['#FF9800', '#F57C00'] : ['#4CAF50', '#45A049']}
+                colors={task.status === "выполнено" ? 
+                  [theme.colors.warning, theme.isDark ? theme.colors.warning + 'DD' : '#F57C00'] : 
+                  [theme.colors.success, theme.isDark ? theme.colors.success + 'DD' : '#45A049']
+                }
                 style={styles.actionButtonGradient}
               >
                 <Ionicons 
@@ -359,7 +378,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
               onPress={() => navigation.navigate("EditTaskForm", { task })}
             >
               <LinearGradient
-                colors={['#2196F3', '#1976D2']}
+                colors={[theme.colors.accent, theme.isDark ? theme.colors.accent + 'DD' : '#1976D2']}
                 style={styles.actionButtonGradient}
               >
                 <Ionicons name="create-outline" size={20} color="#FFF" />
@@ -373,7 +392,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
               onPress={handleDelete}
             >
               <LinearGradient
-                colors={['#F44336', '#D32F2F']}
+                colors={[theme.colors.error, theme.isDark ? theme.colors.error + 'DD' : '#D32F2F']}
                 style={styles.actionButtonGradient}
               >
                 <Ionicons name="trash-outline" size={20} color="#FFF" />
@@ -385,10 +404,17 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
           {/* Additional Info */}
           <View style={styles.infoCard}>
             <LinearGradient
-              colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+              colors={theme.isDark ? 
+                [`${theme.colors.primary}20`, `${theme.colors.primary}10`] : 
+                ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
+              }
               style={styles.infoCardGradient}
             >
-              <Ionicons name="information-circle-outline" size={20} color="#FFF" />
+              <Ionicons 
+                name="information-circle-outline" 
+                size={20} 
+                color={theme.isDark ? theme.colors.primary : "#FFF"} 
+              />
               <Text style={styles.infoText}>
                 Нажмите "Редактировать" чтобы изменить детали задачи
               </Text>
@@ -400,7 +426,8 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
   );
 }
 
-const styles = StyleSheet.create({
+// Функция создания стилей с поддержкой тем
+const createThemedStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -410,7 +437,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.text : '#FFF',
     fontSize: 16,
     marginTop: 10,
     fontWeight: '500',
@@ -422,7 +449,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   errorText: {
-    color: "#FFF",
+    color: theme.isDark ? theme.colors.text : "#FFF",
     fontSize: 18,
     textAlign: "center",
     marginTop: 20,
@@ -430,15 +457,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   backToHomeButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}30` : 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: theme.isDark ? 
+      `${theme.colors.primary}50` : 'rgba(255, 255, 255, 0.3)',
   },
   backToHomeText: {
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.primary : '#FFF',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -447,7 +476,8 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}08` : 'rgba(255, 255, 255, 0.08)',
     top: -20,
     right: -20,
   },
@@ -456,7 +486,8 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}06` : 'rgba(255, 255, 255, 0.06)',
     bottom: 100,
     left: -20,
   },
@@ -481,10 +512,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: theme.isDark ? 
+      theme.colors.surface : 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -494,7 +526,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 24,
     fontWeight: "bold",
-    color: "#FFF",
+    color: theme.isDark ? theme.colors.text : "#FFF",
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -507,7 +539,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 30,
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
@@ -535,7 +567,7 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#333",
+    color: theme.colors.text,
     marginBottom: 20,
     lineHeight: 30,
   },
@@ -545,7 +577,7 @@ const styles = StyleSheet.create({
   tagsLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B6F45',
+    color: theme.colors.primary,
     marginBottom: 8,
   },
   tagsContainer: {
@@ -576,7 +608,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}20` : 'rgba(107, 111, 69, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -586,13 +619,13 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: 'rgba(107, 111, 69, 0.7)',
+    color: theme.colors.textSecondary,
     fontWeight: '500',
     marginBottom: 2,
   },
   detailValue: {
     fontSize: 16,
-    color: "#333",
+    color: theme.colors.text,
     fontWeight: '600',
   },
   actionsContainer: {
@@ -602,7 +635,7 @@ const styles = StyleSheet.create({
   actionButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -633,7 +666,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.text : '#FFF',
     fontSize: 14,
     opacity: 0.9,
     lineHeight: 20,

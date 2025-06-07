@@ -53,8 +53,89 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
   const [chatService] = useState(() => new ChatGPTService());
   const scrollViewRef = useRef<ScrollView>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   const styles = createThemedStyles(theme);
+
+  // Ключ для сохранения истории чата для конкретного пользователя
+  const getChatHistoryKey = (userId: string) => `chat_history_${userId}`;
+
+  // Сохранение истории чата
+  const saveChatHistory = useCallback(async (chatMessages: ChatMessage[], userId: string) => {
+    try {
+      const historyKey = getChatHistoryKey(userId);
+      const historyData = {
+        messages: chatMessages.map(msg => ({
+          ...msg,
+          timestamp: msg.timestamp.toISOString(), // Конвертируем Date в string для JSON
+        })),
+        lastUpdated: new Date().toISOString(),
+      };
+      await AsyncStorage.setItem(historyKey, JSON.stringify(historyData));
+    } catch (error) {
+      console.error('Ошибка сохранения истории чата:', error);
+    }
+  }, []);
+
+  // Загрузка истории чата
+  const loadChatHistory = useCallback(async (userId: string): Promise<ChatMessage[]> => {
+    try {
+      const historyKey = getChatHistoryKey(userId);
+      const historyData = await AsyncStorage.getItem(historyKey);
+      
+      if (historyData) {
+        const parsed = JSON.parse(historyData);
+        return parsed.messages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp), // Конвертируем string обратно в Date
+        }));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки истории чата:', error);
+    }
+    return [];
+  }, []);
+
+  // Очистка истории чата
+  const clearChatHistory = useCallback(async () => {
+    try {
+      const userData = await AsyncStorage.getItem("user");
+      if (!userData) return;
+
+      const user = JSON.parse(userData);
+      const userId = user.id || user._id || user.email;
+      
+      if (!userId) return;
+
+      Alert.alert(
+        'Очистить историю чата?',
+        'Все сообщения будут удалены без возможности восстановления.',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          {
+            text: 'Очистить',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const historyKey = getChatHistoryKey(userId);
+                await AsyncStorage.removeItem(historyKey);
+                setMessages([]);
+                // Добавляем приветственное сообщение после очистки
+                setTimeout(() => {
+                  addWelcomeMessage();
+                }, 100);
+              } catch (error) {
+                console.error('Ошибка очистки истории чата:', error);
+                Alert.alert('Ошибка', 'Не удалось очистить историю чата');
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Ошибка получения данных пользователя:', error);
+    }
+  }, []);
 
   // Форматирование даты и времени для отображения (как в HomeScreen)
   const formatDisplayDate = (dateString?: string) => {
@@ -114,24 +195,11 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
     }
   }, []);
 
-  // Принудительное обновление задач
   const refreshTasks = useCallback(async () => {
     if (token) {
       await loadTasks(token);
     }
   }, [token, loadTasks]);
-
-  const loadUserData = async () => {
-    try {
-      const userData = await AsyncStorage.getItem("user");
-      if (userData) {
-        const user = JSON.parse(userData);
-        setUserName(user.name || 'Пользователь');
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки данных пользователя:', error);
-    }
-  };
 
   const addWelcomeMessage = () => {
     const welcomeMessage: ChatMessage = {
@@ -145,8 +213,19 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
 
   useEffect(() => {
     const initializeChat = async () => {
+      setIsLoadingHistory(true);
       await chatService.initialize();
-      await loadUserData();
+      
+      // Загружаем данные пользователя
+      const userData = await AsyncStorage.getItem("user");
+      let userId = null;
+      
+      if (userData) {
+        const user = JSON.parse(userData);
+        setUserName(user.name || 'Пользователь');
+        // Используем стабильный идентификатор пользователя
+        userId = user.id || user._id || user.email;
+      }
       
       // Загружаем токен и задачи
       const storedToken = await AsyncStorage.getItem("token");
@@ -155,10 +234,26 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
         await loadTasks(storedToken);
       }
       
-      // Добавляем приветственное сообщение после загрузки данных
-      setTimeout(() => {
-        addWelcomeMessage();
-      }, 100);
+      // Загружаем историю чата только если есть стабильный ID пользователя
+      if (userId) {
+        const chatHistory = await loadChatHistory(userId);
+        
+        if (chatHistory.length > 0) {
+          setMessages(chatHistory);
+        } else {
+          // Добавляем приветственное сообщение только если нет истории
+          setTimeout(() => {
+            addWelcomeMessage();
+          }, 100);
+        }
+      } else {
+        // Если нет ID пользователя, показываем приветственное сообщение
+        setTimeout(() => {
+          addWelcomeMessage();
+        }, 100);
+      }
+      
+      setIsLoadingHistory(false);
       
       // Анимация появления
       Animated.timing(fadeAnim, {
@@ -169,7 +264,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
     };
 
     initializeChat();
-  }, [fadeAnim, chatService, loadTasks]);
+  }, [fadeAnim, chatService, loadTasks, loadChatHistory]);
 
   // Обновляем задачи при фокусе на экране
   useEffect(() => {
@@ -181,6 +276,28 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
 
     return unsubscribe;
   }, [navigation, token, loadTasks]);
+
+  // Сохраняем историю чата при изменении сообщений
+  useEffect(() => {
+    const saveHistory = async () => {
+      if (messages.length > 0 && !isLoadingHistory) {
+        try {
+          const userData = await AsyncStorage.getItem("user");
+          if (userData) {
+            const user = JSON.parse(userData);
+            const userId = user.id || user._id || user.email;
+            if (userId) {
+              await saveChatHistory(messages, userId);
+            }
+          }
+        } catch (error) {
+          console.error('Ошибка при сохранении истории:', error);
+        }
+      }
+    };
+
+    saveHistory();
+  }, [messages, saveChatHistory, isLoadingHistory]);
 
   const addMessage = (text: string, isUser: boolean, hasTaskSuggestion: boolean = false) => {
     const newMessage: ChatMessage = {
@@ -400,6 +517,23 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                 </Text>
               </View>
               
+              {/* Кнопка очистки чата */}
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={clearChatHistory}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <LinearGradient
+                  colors={theme.isDark ? 
+                    [theme.colors.surface, theme.colors.card] : 
+                    ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']
+                  }
+                  style={styles.clearButtonGradient}
+                >
+                  <Ionicons name="trash-outline" size={18} color={theme.isDark ? theme.colors.text : "#FFF"} />
+                </LinearGradient>
+              </TouchableOpacity>
+              
               {/* Кнопка обновления задач */}
               <TouchableOpacity
                 style={styles.refreshButton}
@@ -429,84 +563,91 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
             }
             style={styles.chatContainer}
           >
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.messagesContainer}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.messagesContent}
-            >
-              {messages.map((message) => (
-                <View
-                  key={message.id}
-                  style={[
-                    styles.messageContainer,
-                    message.isUser ? styles.userMessage : styles.aiMessage,
-                  ]}
-                >
-                  <LinearGradient
-                    colors={message.isUser 
-                      ? (theme.isDark ? [theme.colors.primary, theme.colors.secondary] : ['#8BC34A', '#6B6F45'])
-                      : (theme.isDark ? [theme.colors.card, theme.colors.surface] : ['#FFFFFF', '#F8F9FA'])
-                    }
-                    style={styles.messageGradient}
+            {isLoadingHistory ? (
+              <View style={styles.loadingHistoryContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={styles.loadingHistoryText}>Загрузка истории чата...</Text>
+              </View>
+            ) : (
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.messagesContainer}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.messagesContent}
+              >
+                {messages.map((message) => (
+                  <View
+                    key={message.id}
+                    style={[
+                      styles.messageContainer,
+                      message.isUser ? styles.userMessage : styles.aiMessage,
+                    ]}
                   >
-                    <Text
-                      style={[
-                        styles.messageText,
-                        { color: message.isUser ? '#FFF' : theme.colors.text },
-                      ]}
+                    <LinearGradient
+                      colors={message.isUser 
+                        ? (theme.isDark ? [theme.colors.primary, theme.colors.secondary] : ['#8BC34A', '#6B6F45'])
+                        : (theme.isDark ? [theme.colors.card, theme.colors.surface] : ['#FFFFFF', '#F8F9FA'])
+                      }
+                      style={styles.messageGradient}
                     >
-                      {message.text}
-                    </Text>
-                    
-                    {message.hasTaskSuggestion && (
-                      <TouchableOpacity
-                        style={styles.taskSuggestionButton}
-                        onPress={() => navigation.navigate('Task', { id: undefined })}
+                      <Text
+                        style={[
+                          styles.messageText,
+                          { color: message.isUser ? '#FFF' : theme.colors.text },
+                        ]}
                       >
-                        <Ionicons name="add-circle" size={16} color="#FFF" />
-                        <Text style={styles.taskSuggestionText}>Создать задачу</Text>
-                      </TouchableOpacity>
-                    )}
-                    
-                    <Text
-                      style={[
-                        styles.timestamp,
-                        { color: message.isUser ? 'rgba(255,255,255,0.7)' : theme.colors.textSecondary },
-                      ]}
+                        {message.text}
+                      </Text>
+                      
+                      {message.hasTaskSuggestion && (
+                        <TouchableOpacity
+                          style={styles.taskSuggestionButton}
+                          onPress={() => navigation.navigate('Task', { id: undefined })}
+                        >
+                          <Ionicons name="add-circle" size={16} color="#FFF" />
+                          <Text style={styles.taskSuggestionText}>Создать задачу</Text>
+                        </TouchableOpacity>
+                      )}
+                      
+                      <Text
+                        style={[
+                          styles.timestamp,
+                          { color: message.isUser ? 'rgba(255,255,255,0.7)' : theme.colors.textSecondary },
+                        ]}
+                      >
+                        {message.timestamp.toLocaleTimeString('ru-RU', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                    </LinearGradient>
+                  </View>
+                ))}
+
+                {isLoading && (
+                  <View style={styles.loadingContainer}>
+                    <LinearGradient
+                      colors={theme.isDark ? 
+                        [theme.colors.card, theme.colors.surface] : 
+                        ['#FFFFFF', '#F8F9FA']
+                      }
+                      style={styles.loadingGradient}
                     >
-                      {message.timestamp.toLocaleTimeString('ru-RU', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  </LinearGradient>
-                </View>
-              ))}
+                      <View style={styles.aiAvatar}>
+                        <Image source={DinoImage} style={styles.aiAvatarImage} />
+                      </View>
+                      <View style={styles.loadingContent}>
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                        <Text style={styles.loadingText}>AI думает...</Text>
+                      </View>
+                    </LinearGradient>
+                  </View>
+                )}
+              </ScrollView>
+            )}
 
-              {isLoading && (
-                <View style={styles.loadingContainer}>
-                  <LinearGradient
-                    colors={theme.isDark ? 
-                      [theme.colors.card, theme.colors.surface] : 
-                      ['#FFFFFF', '#F8F9FA']
-                    }
-                    style={styles.loadingGradient}
-                  >
-                    <View style={styles.aiAvatar}>
-                      <Image source={DinoImage} style={styles.aiAvatarImage} />
-                    </View>
-                    <View style={styles.loadingContent}>
-                      <ActivityIndicator size="small" color={theme.colors.primary} />
-                      <Text style={styles.loadingText}>AI думает...</Text>
-                    </View>
-                  </LinearGradient>
-                </View>
-              )}
-            </ScrollView>
-
-            {/* Quick Actions для новых пользователей */}
-            {messages.length <= 1 && (
+            {/* Quick Actions - всегда доступны */}
+            {!isLoadingHistory && (
               <View style={styles.quickActionsSection}>
                 <Text style={styles.quickActionsTitle}>Быстрые действия:</Text>
                 <ScrollView 
@@ -537,44 +678,46 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
             )}
 
             {/* Input Container */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputWrapper}>
-                <LinearGradient
-                  colors={theme.isDark ? 
-                    [theme.colors.background, theme.colors.surface] : 
-                    ['#F8F9FA', '#FFFFFF']
-                  }
-                  style={styles.inputGradient}
-                >
-                  <TextInput
-                    style={styles.textInput}
-                    value={inputText}
-                    onChangeText={setInputText}
-                    placeholder="Спроси что-нибудь о своих задачах..."
-                    placeholderTextColor={theme.colors.textSecondary}
-                    multiline
-                    maxLength={500}
-                    returnKeyType="send"
-                    onSubmitEditing={sendMessage}
-                  />
-                  <TouchableOpacity
-                    style={[styles.sendButton, { opacity: inputText.trim() ? 1 : 0.5 }]}
-                    onPress={sendMessage}
-                    disabled={!inputText.trim() || isLoading}
+            {!isLoadingHistory && (
+              <View style={styles.inputContainer}>
+                <View style={styles.inputWrapper}>
+                  <LinearGradient
+                    colors={theme.isDark ? 
+                      [theme.colors.background, theme.colors.surface] : 
+                      ['#F8F9FA', '#FFFFFF']
+                    }
+                    style={styles.inputGradient}
                   >
-                    <LinearGradient
-                      colors={theme.isDark ? 
-                        [theme.colors.primary, theme.colors.secondary] : 
-                        ['#8BC34A', '#6B6F45']
-                      }
-                      style={styles.sendButtonGradient}
+                    <TextInput
+                      style={styles.textInput}
+                      value={inputText}
+                      onChangeText={setInputText}
+                      placeholder="Спроси что-нибудь о своих задачах..."
+                      placeholderTextColor={theme.colors.textSecondary}
+                      multiline
+                      maxLength={500}
+                      returnKeyType="send"
+                      onSubmitEditing={sendMessage}
+                    />
+                    <TouchableOpacity
+                      style={[styles.sendButton, { opacity: inputText.trim() ? 1 : 0.5 }]}
+                      onPress={sendMessage}
+                      disabled={!inputText.trim() || isLoading}
                     >
-                      <Ionicons name="send" size={20} color="#FFF" />
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </LinearGradient>
+                      <LinearGradient
+                        colors={theme.isDark ? 
+                          [theme.colors.primary, theme.colors.secondary] : 
+                          ['#8BC34A', '#6B6F45']
+                        }
+                        style={styles.sendButtonGradient}
+                      >
+                        <Ionicons name="send" size={20} color="#FFF" />
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </LinearGradient>
+                </View>
               </View>
-            </View>
+            )}
           </LinearGradient>
         </View>
       </Animated.View>
@@ -632,6 +775,19 @@ const createThemedStyles = (theme: any) => StyleSheet.create({
   titleContainer: {
     flex: 1,
   },
+  clearButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    overflow: 'hidden',
+    marginLeft: 8,
+  },
+  clearButtonGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   refreshButton: {
     width: 36,
     height: 36,
@@ -673,6 +829,16 @@ const createThemedStyles = (theme: any) => StyleSheet.create({
   },
   chatContainer: {
     flex: 1,
+  },
+  loadingHistoryContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingHistoryText: {
+    color: theme.colors.textSecondary,
+    fontSize: 16,
   },
   messagesContainer: {
     flex: 1,

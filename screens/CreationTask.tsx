@@ -21,6 +21,7 @@ import { saveTaskPattern } from "../services/aiService";
 import { tensorflowLiteService } from "../services/tensorflowService";
 import { LinearGradient } from 'react-native-linear-gradient';
 import { useTheme } from "./ThemeContext";
+import { useLocalization } from "./LocalizationContext";
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,6 +40,7 @@ interface TaskAnalysis {
 
 export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   const { theme } = useTheme();
+  const { t } = useLocalization();
   const [task, setTask] = useState("");
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
@@ -142,12 +144,12 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
 
   const saveTask = async () => {
     if (!task.trim()) {
-      Alert.alert("Ошибка", "Введите название задачи!");
+      Alert.alert(t('common.error'), t('tasks.enterTitle'));
       return;
     }
   
     if (!token) {
-      Alert.alert("Ошибка", "Требуется авторизация");
+      Alert.alert(t('common.error'), t('errors.genericError'));
       return;
     }
   
@@ -163,7 +165,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
         title: task,
         date: formatDate(date),
         time: formatTime(time),
-        status: "в прогрессе",
+        status: t('tasks.inProgress'),
         tags: selectedTags,
         // Добавляем результаты анализа ИИ
         analysis: finalAnalysis
@@ -185,15 +187,18 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       await saveTaskPattern(task); // обучение ИИ
 
       // Показываем детальное сообщение с результатами анализа ИИ
-      let alertMessage = "Задача успешно создана";
+      let alertMessage = t('tasks.taskCreated');
       if (finalAnalysis) {
-        alertMessage += `\n\n🤖 Анализ ИИ:\n` +
-          `📂 Категория: ${finalAnalysis.category}\n` +
-          `⏱️ Время: ~${finalAnalysis.estimatedDuration} мин\n` +
-          `🎯 Приоритет: ${finalAnalysis.priority === 'high' ? 'Высокий' : 
-                          finalAnalysis.priority === 'medium' ? 'Средний' : 'Низкий'}\n` +
-          `😊 Тональность: ${finalAnalysis.sentiment.sentiment === 'positive' ? 'Позитивная' : 
-                            finalAnalysis.sentiment.sentiment === 'negative' ? 'Сложная' : 'Нейтральная'} ` +
+        const priorityText = finalAnalysis.priority === 'high' ? t('common.high') : 
+                           finalAnalysis.priority === 'medium' ? t('common.medium') : t('common.low');
+        const sentimentText = finalAnalysis.sentiment.sentiment === 'positive' ? t('common.positive') : 
+                            finalAnalysis.sentiment.sentiment === 'negative' ? t('common.difficult') : t('common.neutral');
+        
+        alertMessage += `\n\n🤖 ${t('ai.analysis')}:\n` +
+          `📂 ${t('ai.category')}: ${finalAnalysis.category}\n` +
+          `⏱️ ${t('ai.duration')}: ~${finalAnalysis.estimatedDuration} ${t('common.minutes')}\n` +
+          `🎯 ${t('ai.priority')}: ${priorityText}\n` +
+          `😊 ${t('ai.sentiment')}: ${sentimentText} ` +
           `(${Math.round(finalAnalysis.sentiment.confidence * 100)}%)`;
         
         if (finalAnalysis.sentiment.suggestion) {
@@ -201,15 +206,13 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
         }
       }
 
-      Alert.alert("Успех", alertMessage, [
+      Alert.alert(t('common.success'), alertMessage, [
         { text: "OK", onPress: () => navigation.navigate("Home", { refreshed: true }) }
       ]);
   
     } catch (error) {
       console.error("Полная ошибка:", error);
-      
-      let errorMessage = "Не удалось создать задачу";
-      Alert.alert("Ошибка", errorMessage);
+      Alert.alert(t('common.error'), t('errors.savingError'));
     }
   };
 
@@ -251,8 +254,8 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
   };
 
   const getDateDisplayText = () => {
-    if (isToday(date)) return "Сегодня";
-    if (isTomorrow(date)) return "Завтра";
+    if (isToday(date)) return t('tasks.today');
+    if (isTomorrow(date)) return t('tasks.tomorrow');
     return formatDate(date);
   };
 
@@ -288,6 +291,23 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       case 'medium': return '⚡';
       case 'low': return '😌';
       default: return '📋';
+    }
+  };
+
+  const getSentimentText = (sentiment: string) => {
+    switch (sentiment) {
+      case 'positive': return t('common.positive');
+      case 'negative': return t('common.difficult');
+      default: return t('common.neutral');
+    }
+  };
+
+  const getPriorityText = (priority: string) => {
+    switch (priority) {
+      case 'high': return t('common.high');
+      case 'medium': return t('common.medium');
+      case 'low': return t('common.low');
+      default: return t('common.medium');
     }
   };
 
@@ -327,8 +347,8 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
             </TouchableOpacity>
 
             <View style={styles.titleContainer}>
-              <Text style={styles.title}>Создать задачу</Text>
-              <Text style={styles.subtitle}>ИИ поможет с анализом и планированием</Text>
+              <Text style={styles.title}>{t('tasks.newTask')}</Text>
+              <Text style={styles.subtitle}>{t('ai.helpWithAnalysis')}</Text>
             </View>
           </View>
 
@@ -343,7 +363,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
             >
               {/* Task Input */}
               <View style={styles.inputSection}>
-                <Text style={styles.sectionTitle}>Название задачи</Text>
+                <Text style={styles.sectionTitle}>{t('tasks.taskTitle')}</Text>
                 <View style={styles.taskInputContainer}>
                   <View style={styles.taskIconContainer}>
                     <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
@@ -352,7 +372,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     style={styles.taskInput}
                     value={task}
                     onChangeText={setTask}
-                    placeholder="Введите название (ИИ проанализирует автоматически)"
+                    placeholder={t('ai.enterTaskPlaceholder')}
                     placeholderTextColor={theme.colors.textSecondary}
                     multiline
                     maxLength={100}
@@ -372,21 +392,20 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                   styles.aiAnalysisSection,
                   { opacity: analysisAnim }
                 ]}>
-                  <Text style={styles.sectionTitle}>🤖 Анализ ИИ (TensorFlow Lite)</Text>
+                  <Text style={styles.sectionTitle}>🤖 {t('ai.analysis')} (TensorFlow Lite)</Text>
                   
                   <View style={styles.analysisGrid}>
                     {/* Тональность */}
                     <View style={[styles.analysisCard, { borderLeftColor: getSentimentColor(taskAnalysis.sentiment.sentiment) }]}>
                       <View style={styles.analysisHeader}>
                         <Text style={styles.analysisIcon}>{getSentimentIcon(taskAnalysis.sentiment.sentiment)}</Text>
-                        <Text style={styles.analysisTitle}>Тональность</Text>
+                        <Text style={styles.analysisTitle}>{t('ai.sentiment')}</Text>
                       </View>
                       <Text style={styles.analysisValue}>
-                        {taskAnalysis.sentiment.sentiment === 'positive' ? 'Позитивная' : 
-                         taskAnalysis.sentiment.sentiment === 'negative' ? 'Сложная' : 'Нейтральная'}
+                        {getSentimentText(taskAnalysis.sentiment.sentiment)}
                       </Text>
                       <Text style={styles.analysisConfidence}>
-                        Уверенность: {Math.round(taskAnalysis.sentiment.confidence * 100)}%
+                        {t('ai.confidence')}: {Math.round(taskAnalysis.sentiment.confidence * 100)}%
                       </Text>
                     </View>
 
@@ -394,40 +413,39 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     <View style={styles.analysisCard}>
                       <View style={styles.analysisHeader}>
                         <Text style={styles.analysisIcon}>📂</Text>
-                        <Text style={styles.analysisTitle}>Категория</Text>
+                        <Text style={styles.analysisTitle}>{t('ai.category')}</Text>
                       </View>
                       <Text style={styles.analysisValue}>{taskAnalysis.category}</Text>
-                      <Text style={styles.analysisSubtext}>Автоопределение</Text>
+                      <Text style={styles.analysisSubtext}>{t('ai.autoDetection')}</Text>
                     </View>
 
                     {/* Время выполнения */}
                     <View style={styles.analysisCard}>
                       <View style={styles.analysisHeader}>
                         <Text style={styles.analysisIcon}>⏱️</Text>
-                        <Text style={styles.analysisTitle}>Время</Text>
+                        <Text style={styles.analysisTitle}>{t('ai.duration')}</Text>
                       </View>
-                      <Text style={styles.analysisValue}>~{taskAnalysis.estimatedDuration} мин</Text>
-                      <Text style={styles.analysisSubtext}>Прогноз ИИ</Text>
+                      <Text style={styles.analysisValue}>~{taskAnalysis.estimatedDuration} {t('common.minutes')}</Text>
+                      <Text style={styles.analysisSubtext}>{t('ai.aiPrediction')}</Text>
                     </View>
 
                     {/* Приоритет */}
                     <View style={[styles.analysisCard, { borderLeftColor: getPriorityColor(taskAnalysis.priority) }]}>
                       <View style={styles.analysisHeader}>
                         <Text style={styles.analysisIcon}>{getPriorityIcon(taskAnalysis.priority)}</Text>
-                        <Text style={styles.analysisTitle}>Приоритет</Text>
+                        <Text style={styles.analysisTitle}>{t('ai.priority')}</Text>
                       </View>
                       <Text style={[styles.analysisValue, { color: getPriorityColor(taskAnalysis.priority) }]}>
-                        {taskAnalysis.priority === 'high' ? 'Высокий' : 
-                         taskAnalysis.priority === 'medium' ? 'Средний' : 'Низкий'}
+                        {getPriorityText(taskAnalysis.priority)}
                       </Text>
-                      <Text style={styles.analysisSubtext}>На основе анализа</Text>
+                      <Text style={styles.analysisSubtext}>{t('ai.basedOnAnalysis')}</Text>
                     </View>
                   </View>
 
                   {/* AI Suggestion */}
                   {taskAnalysis.sentiment.suggestion && (
                     <View style={styles.aiSuggestionContainer}>
-                      <Text style={styles.aiSuggestionTitle}>💡 Рекомендация ИИ:</Text>
+                      <Text style={styles.aiSuggestionTitle}>💡 {t('ai.recommendation')}:</Text>
                       <Text style={styles.aiSuggestionText}>{taskAnalysis.sentiment.suggestion}</Text>
                     </View>
                   )}
@@ -435,7 +453,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                   {/* Model Info */}
                   <View style={styles.modelInfoContainer}>
                     <Text style={styles.modelInfoText}>
-                      Модель: {taskAnalysis.sentiment.aiModelUsed} • Обработка: локально
+                      {t('ai.model')}: {taskAnalysis.sentiment.aiModelUsed} • {t('ai.processing')}: {t('ai.locally')}
                     </Text>
                   </View>
                 </Animated.View>
@@ -444,9 +462,9 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
               {/* Categories Section */}
               <View style={styles.categoriesSection}>
                 <Text style={styles.sectionTitle}>
-                  Дополнительные категории
+                  {t('ai.additionalCategories')}
                   {taskAnalysis && (
-                    <Text style={styles.aiSuggestedText}> (ИИ предложил: {taskAnalysis.category})</Text>
+                    <Text style={styles.aiSuggestedText}> ({t('ai.aiSuggested')}: {taskAnalysis.category})</Text>
                   )}
                 </Text>
                 <View style={styles.tagsGrid}>
@@ -478,7 +496,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                         </Text>
                         {isAISuggested && (
                           <View style={styles.aiSuggestedBadge}>
-                            <Text style={styles.aiSuggestedBadgeText}>ИИ</Text>
+                            <Text style={styles.aiSuggestedBadgeText}>{t('ai.short')}</Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -489,7 +507,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
 
               {/* Date & Time Section */}
               <View style={styles.dateTimeSection}>
-                <Text style={styles.sectionTitle}>Дата и время</Text>
+                <Text style={styles.sectionTitle}>{t('ai.dateAndTime')}</Text>
                 
                 <View style={styles.dateTimeGrid}>
                   <TouchableOpacity 
@@ -506,7 +524,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                       <View style={styles.dateTimeIcon}>
                         <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                       </View>
-                      <Text style={styles.dateTimeLabel}>Дата</Text>
+                      <Text style={styles.dateTimeLabel}>{t('tasks.date')}</Text>
                       <Text style={styles.dateTimeValue}>{getDateDisplayText()}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -525,7 +543,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                       <View style={styles.dateTimeIcon}>
                         <Ionicons name="time" size={24} color={theme.colors.primary} />
                       </View>
-                      <Text style={styles.dateTimeLabel}>Время</Text>
+                      <Text style={styles.dateTimeLabel}>{t('tasks.time')}</Text>
                       <Text style={styles.dateTimeValue}>{formatTime(time)}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -534,7 +552,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
 
               {/* Quick Actions */}
               <View style={styles.quickActionsSection}>
-                <Text style={styles.sectionTitle}>Быстрые действия</Text>
+                <Text style={styles.sectionTitle}>{t('ai.quickActions')}</Text>
                 <View style={styles.quickActions}>
                   <TouchableOpacity
                     style={styles.quickAction}
@@ -546,7 +564,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     }}
                   >
                     <Ionicons name="sunny" size={16} color={theme.colors.warning} />
-                    <Text style={styles.quickActionText}>Утром</Text>
+                    <Text style={styles.quickActionText}>{t('ai.morning')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -559,7 +577,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     }}
                   >
                     <Ionicons name="partly-sunny" size={16} color={theme.colors.accent} />
-                    <Text style={styles.quickActionText}>Днем</Text>
+                    <Text style={styles.quickActionText}>{t('ai.afternoon')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -572,7 +590,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     }}
                   >
                     <Ionicons name="moon" size={16} color={theme.colors.secondary} />
-                    <Text style={styles.quickActionText}>Вечером</Text>
+                    <Text style={styles.quickActionText}>{t('ai.evening')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -586,7 +604,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                     }}
                   >
                     <Ionicons name="calendar-outline" size={16} color={theme.colors.accent} />
-                    <Text style={styles.quickActionText}>Завтра</Text>
+                    <Text style={styles.quickActionText}>{t('tasks.tomorrow')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -615,7 +633,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                 styles.saveButtonText,
                 !task.trim() && styles.saveButtonTextDisabled
               ]}>
-                {taskAnalysis ? 'Сохранить с анализом ИИ' : 'Сохранить задачу'}
+                {taskAnalysis ? t('ai.saveWithAnalysis') : t('common.save')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>

@@ -17,6 +17,7 @@ import { RootStackParamList } from "./types";
 import linking from "./server/linking";
 import PushNotification from "react-native-push-notification";
 import { ThemeProvider, useTheme } from "./screens/ThemeContext";
+import { LocalizationProvider } from "./screens/LocalizationContext";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -95,8 +96,10 @@ export default function App() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <AppNavigator />
-    </ThemeProvider>
+    <LocalizationProvider>
+      <ThemeProvider>
+        <AppNavigator />
+      </ThemeProvider>
+    </LocalizationProvider>
   );
 }

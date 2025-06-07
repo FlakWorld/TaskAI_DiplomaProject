@@ -18,11 +18,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from 'react-native-linear-gradient';
 import { useTheme } from "./ThemeContext";
+import { useLocalization } from "./LocalizationContext";
 
 const { width, height } = Dimensions.get('window');
 
 export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTaskForm">) {
   const { theme } = useTheme();
+  const { t } = useLocalization();
   const { task } = route.params || {};
   const [title, setTitle] = useState(task?.title || "");
   const [date, setDate] = useState(parseDate(task?.date));
@@ -104,12 +106,12 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
   const handleSave = async () => {
     console.log('Starting save...');
     if (!token) {
-      Alert.alert("Ошибка", "Требуется авторизация");
+      Alert.alert(t('common.error'), t('errors.authRequired'));
       return;
     }
   
     if (!title.trim()) {
-      Alert.alert("Ошибка", "Введите название задачи");
+      Alert.alert(t('common.error'), t('tasks.enterTaskTitle'));
       return;
     }
   
@@ -136,7 +138,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
         title,
         date: formatDateToSend(date),
         time: formatTimeToSend(time),
-        status: task?.status || "в прогрессе",
+        status: task?.status || t('tasks.inProgress'),
         tags: selectedTags,
       };
 
@@ -150,14 +152,14 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
         throw new Error(response.error);
       }
   
-      Alert.alert("Успех", "Задача успешно обновлена", [
-        { text: "OK", onPress: () => navigation.navigate("Home", { refreshed: true }) }
+      Alert.alert(t('common.success'), t('tasks.taskUpdated'), [
+        { text: t('common.ok'), onPress: () => navigation.navigate("Home", { refreshed: true }) }
       ]);
     } catch (error) {
       console.error("Ошибка при обновлении:", error);
       Alert.alert(
-        "Ошибка",
-        error instanceof Error ? error.message : "Не удалось обновить задачу"
+        t('common.error'),
+        error instanceof Error ? error.message : t('tasks.updateError')
       );
       
       if (error === "Unauthorized") {
@@ -192,8 +194,8 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
   };
 
   const getDateDisplayText = () => {
-    if (isToday(date)) return "Сегодня";
-    if (isTomorrow(date)) return "Завтра";
+    if (isToday(date)) return t('tasks.today');
+    if (isTomorrow(date)) return t('tasks.tomorrow');
     return formatDateForDisplay(date);
   };
 
@@ -233,8 +235,8 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
             </TouchableOpacity>
 
             <View style={styles.titleContainer}>
-              <Text style={styles.title}>Редактирование</Text>
-              <Text style={styles.subtitle}>Обновите детали задачи</Text>
+              <Text style={styles.title}>{t('tasks.editing')}</Text>
+              <Text style={styles.subtitle}>{t('tasks.updateDetails')}</Text>
             </View>
           </View>
 
@@ -249,14 +251,14 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
             >
               {/* Task Title Section */}
               <View style={styles.inputSection}>
-                <Text style={styles.sectionTitle}>Название задачи</Text>
+                <Text style={styles.sectionTitle}>{t('tasks.taskTitle')}</Text>
                 <View style={styles.taskInputContainer}>
                   <View style={styles.taskIconContainer}>
                     <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <TextInput
                     style={styles.taskInput}
-                    placeholder="Название задачи"
+                    placeholder={t('tasks.taskTitle')}
                     placeholderTextColor={theme.colors.textSecondary}
                     value={title}
                     onChangeText={setTitle}
@@ -269,7 +271,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
 
               {/* Categories Section */}
               <View style={styles.categoriesSection}>
-                <Text style={styles.sectionTitle}>Категории</Text>
+                <Text style={styles.sectionTitle}>{t('tasks.categories')}</Text>
                 <View style={styles.tagsGrid}>
                   {TASK_CATEGORIES.map((category) => (
                     <TouchableOpacity
@@ -301,7 +303,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
 
               {/* Date & Time Section */}
               <View style={styles.dateTimeSection}>
-                <Text style={styles.sectionTitle}>Дата и время</Text>
+                <Text style={styles.sectionTitle}>{t('ai.dateAndTime')}</Text>
                 
                 <View style={styles.dateTimeGrid}>
                   <TouchableOpacity 
@@ -318,7 +320,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                       <View style={styles.dateTimeIcon}>
                         <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                       </View>
-                      <Text style={styles.dateTimeLabel}>Дата</Text>
+                      <Text style={styles.dateTimeLabel}>{t('tasks.date')}</Text>
                       <Text style={styles.dateTimeValue}>{getDateDisplayText()}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -337,7 +339,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                       <View style={styles.dateTimeIcon}>
                         <Ionicons name="time" size={24} color={theme.colors.primary} />
                       </View>
-                      <Text style={styles.dateTimeLabel}>Время</Text>
+                      <Text style={styles.dateTimeLabel}>{t('tasks.time')}</Text>
                       <Text style={styles.dateTimeValue}>{formatTimeForDisplay(time)}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -346,7 +348,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
 
               {/* Status Section */}
               <View style={styles.statusSection}>
-                <Text style={styles.sectionTitle}>Статус задачи</Text>
+                <Text style={styles.sectionTitle}>{t('tasks.statusTask')}</Text>
                 <View style={styles.statusContainer}>
                   <View style={[
                     styles.statusBadge,
@@ -365,7 +367,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                       styles.statusText,
                       { color: task?.status === "выполнено" ? theme.colors.success : theme.colors.warning }
                     ]}>
-                      {task?.status === "выполнено" ? "Выполнено" : "В процессе"}
+                      {task?.status === "выполнено" ? t('tasks.finished') : t('tasks.inProcess')}
                     </Text>
                   </View>
                 </View>
@@ -373,7 +375,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
 
               {/* Quick Actions */}
               <View style={styles.quickActionsSection}>
-                <Text style={styles.sectionTitle}>Быстрые действия</Text>
+                <Text style={styles.sectionTitle}>{t('ai.quickActions')}</Text>
                 <View style={styles.quickActions}>
                   <TouchableOpacity
                     style={styles.quickAction}
@@ -385,7 +387,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                     }}
                   >
                     <Ionicons name="sunny" size={16} color={theme.colors.warning} />
-                    <Text style={styles.quickActionText}>Утром</Text>
+                    <Text style={styles.quickActionText}>{t('tasks.quickSetMorning')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -398,7 +400,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                     }}
                   >
                     <Ionicons name="partly-sunny" size={16} color={theme.colors.accent} />
-                    <Text style={styles.quickActionText}>Днем</Text>
+                    <Text style={styles.quickActionText}>{t('tasks.quickSetAfternoon')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -411,7 +413,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                     }}
                   >
                     <Ionicons name="moon" size={16} color={theme.colors.secondary} />
-                    <Text style={styles.quickActionText}>Вечером</Text>
+                    <Text style={styles.quickActionText}>{t('tasks.quickSetEvening')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -425,7 +427,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                     }}
                   >
                     <Ionicons name="calendar-outline" size={16} color={theme.colors.accent} />
-                    <Text style={styles.quickActionText}>Завтра</Text>
+                    <Text style={styles.quickActionText}>{t('tasks.quickSetTomorrow')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -450,7 +452,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                   <View style={styles.loadingSpinner}>
                     <Ionicons name="sync" size={20} color="#FFF" />
                   </View>
-                  <Text style={styles.saveButtonText}>Сохранение...</Text>
+                  <Text style={styles.saveButtonText}>{t('tasks.saving')}</Text>
                 </>
               ) : (
                 <>
@@ -463,7 +465,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                     styles.saveButtonText,
                     !title.trim() && styles.saveButtonTextDisabled
                   ]}>
-                    Сохранить изменения
+                    {t('tasks.saveChanges')}
                   </Text>
                 </>
               )}

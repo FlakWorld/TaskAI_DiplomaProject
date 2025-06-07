@@ -17,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from 'react-native-linear-gradient';
 import { useTheme } from "./ThemeContext";
+import { useLocalization } from "./LocalizationContext";
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,6 +32,7 @@ type Task = {
 
 export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask">) {
   const { theme } = useTheme();
+  const { t } = useLocalization();
   const { id } = route.params || {};
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
         if (!id) {
           setTask({
             _id: "",
-            title: "Новая задача",
+            title: t('tasks.newTask'),
             date: new Date().toISOString(),
             time: new Date().toISOString(),
             status: "в прогрессе",
@@ -75,12 +77,12 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
   
         const data = await getTaskById(id, userToken);
         if (!data || data.error) {
-          throw new Error(data?.error || "Задача не найдена");
+          throw new Error(data?.error || t('tasks.taskNotFound'));
         }
         setTask(data);
       } catch (error) {
         console.error("Ошибка загрузки:", error);
-        Alert.alert("Ошибка", error instanceof Error ? error.message : "Не удалось загрузить задачу");
+        Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.loadingError'));
         
         if (error === "Unauthorized") {
           await AsyncStorage.removeItem("token");
@@ -102,7 +104,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
     };
   
     loadData();
-  }, [id, navigation]);
+  }, [id, navigation, t]);
 
   const toggleTaskStatus = async () => {
     if (!task || !token) return;
@@ -111,10 +113,12 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
     try {
       await updateTaskStatus(task._id, newStatus, token);
       setTask({ ...task, status: newStatus });
-      Alert.alert("Успех", `Задача отмечена как "${newStatus}"`);
+      
+      const statusText = newStatus === "выполнено" ? t('tasks.finished') : t('tasks.inProgress');
+      Alert.alert(t('common.success'), `${t('tasks.status')}: "${statusText}"`);
     } catch (error) {
       console.error("Ошибка обновления:", error);
-      Alert.alert("Ошибка", "Не удалось обновить статус");
+      Alert.alert(t('common.error'), t('errors.savingError'));
     }
   };
 
@@ -122,21 +126,21 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
     if (!task?._id || !token) return;
 
     Alert.alert(
-      "Подтверждение",
-      "Вы уверены, что хотите удалить эту задачу?",
+      t('common.confirmation'),
+      t('tasks.deleteTaskConfirm'),
       [
-        { text: "Отмена", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "Удалить",
+          text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
             try {
               await deleteTask(task._id, token);
-              Alert.alert("Успех", "Задача удалена");
+              Alert.alert(t('common.success'), t('tasks.taskDeleted'));
               navigation.navigate("Home", { refreshed: true });
             } catch (error) {
               console.error("Ошибка удаления:", error);
-              Alert.alert("Ошибка", "Не удалось удалить задачу");
+              Alert.alert(t('common.error'), t('errors.deleteError'));
             }
           }
         }
@@ -145,21 +149,21 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString || dateString === "null") return "Дата не указана";
+    if (!dateString || dateString === "null") return t('tasks.dateNotSpecified');
     
     // Проверяем, это ISO-строка или наш кастомный формат
     if (dateString.includes('T')) { // Это ISO формат
       const date = new Date(dateString);
-      return isNaN(date.getTime()) ? "Дата не указана" : date.toLocaleDateString("ru-RU");
+      return isNaN(date.getTime()) ? t('tasks.dateNotSpecified') : date.toLocaleDateString("ru-RU");
     } else { // Это формат DD.MM.YYYY из CreationTask.tsx
       const [day, month, year] = dateString.split('.');
-      if (!day || !month || !year) return "Дата не указана";
+      if (!day || !month || !year) return t('tasks.dateNotSpecified');
       return dateString; // Возвращаем как есть, т.к. уже в нужном формате
     }
   };
 
   const formatTime = (timeString: string) => {
-    if (!timeString || timeString === "null") return "Время не указано";
+    if (!timeString || timeString === "null") return t('tasks.timeNotSpecified');
     
     if (timeString.includes('T') || timeString.includes(':')) { // ISO или HH:mm
       // Пробуем распарсить время
@@ -168,11 +172,11 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
         timeString}Z`);
       
       return isNaN(time.getTime()) ? 
-        "Время не указано" : 
+        t('tasks.timeNotSpecified') : 
         time.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
     }
     
-    return "Время не указано";
+    return t('tasks.timeNotSpecified');
   };
 
   const getStatusIcon = () => {
@@ -181,6 +185,18 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
 
   const getStatusColor = () => {
     return task?.status === "выполнено" ? theme.colors.success : theme.colors.warning;
+  };
+
+  const getStatusText = () => {
+    return task?.status === "выполнено" ? t('tasks.finished') : t('tasks.inProcess');
+  };
+
+  const getToggleButtonText = () => {
+    return task?.status === "выполнено" ? t('tasks.resume') : t('tasks.complete');
+  };
+
+  const getToggleButtonIcon = () => {
+    return task?.status === "выполнено" ? "refresh" : "checkmark-circle";
   };
 
   if (loading) {
@@ -193,7 +209,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
         style={styles.loadingContainer}
       >
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Загрузка задачи...</Text>
+        <Text style={styles.loadingText}>{t('tasks.loadingTask')}</Text>
       </LinearGradient>
     );
   }
@@ -208,12 +224,12 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
         style={styles.errorContainer}
       >
         <Ionicons name="alert-circle-outline" size={60} color={theme.colors.textSecondary} />
-        <Text style={styles.errorText}>Задача не найдена</Text>
+        <Text style={styles.errorText}>{t('tasks.taskNotFound')}</Text>
         <TouchableOpacity 
           style={styles.backToHomeButton}
           onPress={() => navigation.navigate("Home", { refreshed: true })}
         >
-          <Text style={styles.backToHomeText}>Вернуться к задачам</Text>
+          <Text style={styles.backToHomeText}>{t('tasks.backToTasks')}</Text>
         </TouchableOpacity>
       </LinearGradient>
     );
@@ -253,7 +269,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
               </View>
             </TouchableOpacity>
             
-            <Text style={styles.headerTitle}>Детали задачи</Text>
+            <Text style={styles.headerTitle}>{t('tasks.taskDetails')}</Text>
             <View style={styles.headerRight} />
           </View>
 
@@ -275,7 +291,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                     color={getStatusColor()} 
                   />
                   <Text style={[styles.statusText, { color: getStatusColor() }]}>
-                    {task.status === "выполнено" ? "Выполнено" : "В процессе"}
+                    {getStatusText()}
                   </Text>
                 </View>
               </View>
@@ -286,7 +302,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
               {/* Tags */}
               {task.tags && task.tags.length > 0 && (
                 <View style={styles.tagsSection}>
-                  <Text style={styles.tagsLabel}>Категории:</Text>
+                  <Text style={styles.tagsLabel}>{t('tasks.categories')}:</Text>
                   <View style={styles.tagsContainer}>
                     {task.tags.map((tag) => {
                       const category = TASK_CATEGORIES.find(c => c.name === tag);
@@ -317,7 +333,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                     <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Дата</Text>
+                    <Text style={styles.detailLabel}>{t('tasks.date')}</Text>
                     <Text style={styles.detailValue}>{formatDate(task.date)}</Text>
                   </View>
                 </View>
@@ -327,7 +343,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                     <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Время</Text>
+                    <Text style={styles.detailLabel}>{t('tasks.time')}</Text>
                     <Text style={styles.detailValue}>{formatTime(task.time)}</Text>
                   </View>
                 </View>
@@ -337,9 +353,9 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                     <Ionicons name="flag-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Статус</Text>
+                    <Text style={styles.detailLabel}>{t('tasks.status')}</Text>
                     <Text style={[styles.detailValue, { color: getStatusColor() }]}>
-                      {task.status === "выполнено" ? "Выполнено" : "В процессе"}
+                      {getStatusText()}
                     </Text>
                   </View>
                 </View>
@@ -362,12 +378,12 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                 style={styles.actionButtonGradient}
               >
                 <Ionicons 
-                  name={task.status === "выполнено" ? "refresh" : "checkmark-circle"} 
+                  name={getToggleButtonIcon()} 
                   size={20} 
                   color="#FFF" 
                 />
                 <Text style={styles.actionButtonText}>
-                  {task.status === "выполнено" ? "Возобновить" : "Завершить"}
+                  {getToggleButtonText()}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -382,7 +398,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                 style={styles.actionButtonGradient}
               >
                 <Ionicons name="create-outline" size={20} color="#FFF" />
-                <Text style={styles.actionButtonText}>Редактировать</Text>
+                <Text style={styles.actionButtonText}>{t('common.edit')}</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -396,7 +412,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                 style={styles.actionButtonGradient}
               >
                 <Ionicons name="trash-outline" size={20} color="#FFF" />
-                <Text style={styles.actionButtonText}>Удалить</Text>
+                <Text style={styles.actionButtonText}>{t('common.delete')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -416,7 +432,7 @@ export default function TaskDetail({ route, navigation }: ScreenProps<"EditTask"
                 color={theme.isDark ? theme.colors.primary : "#FFF"} 
               />
               <Text style={styles.infoText}>
-                Нажмите "Редактировать" чтобы изменить детали задачи
+                {t('tasks.editTip')}
               </Text>
             </LinearGradient>
           </View>

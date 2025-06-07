@@ -22,6 +22,7 @@ import { ScreenProps } from '../types';
 import { Image } from 'react-native';
 import DinoImage from '../assets/dino.jpg';
 import { useTheme } from './ThemeContext';
+import { useLocalization } from './LocalizationContext';
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +45,7 @@ interface ChatMessage {
 
 const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
   const { theme } = useTheme();
+  const { t } = useLocalization();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -108,12 +110,12 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
       if (!userId) return;
 
       Alert.alert(
-        'Очистить историю чата?',
-        'Все сообщения будут удалены без возможности восстановления.',
+        t('chat.clearHistory'),
+        t('chat.clearHistoryDesc'),
         [
-          { text: 'Отмена', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Очистить',
+            text: t('common.clear'),
             style: 'destructive',
             onPress: async () => {
               try {
@@ -126,7 +128,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                 }, 100);
               } catch (error) {
                 console.error('Ошибка очистки истории чата:', error);
-                Alert.alert('Ошибка', 'Не удалось очистить историю чата');
+                Alert.alert(t('common.error'), t('errors.genericError'));
               }
             },
           },
@@ -135,7 +137,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
     } catch (error) {
       console.error('Ошибка получения данных пользователя:', error);
     }
-  }, []);
+  }, [t]);
 
   // Форматирование даты и времени для отображения (как в HomeScreen)
   const formatDisplayDate = (dateString?: string) => {
@@ -184,7 +186,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
         ...task,
         date: formatDisplayDate(task.date),
         time: formatDisplayTime(task.time),
-        status: task.status || "в прогрессе",
+        status: task.status || t('tasks.inProgress'),
         tags: task.tags || [],
       }));
 
@@ -193,7 +195,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
       console.error('Ошибка загрузки задач:', error);
       // При ошибке загрузки задач не показываем alert, просто логируем
     }
-  }, []);
+  }, [t]);
 
   const refreshTasks = useCallback(async () => {
     if (token) {
@@ -202,9 +204,13 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
   }, [token, loadTasks]);
 
   const addWelcomeMessage = () => {
+    const welcomeText = t('chat.welcome').replace('{name}', 
+      userName !== 'Пользователь' ? `, ${userName}` : ''
+    );
+    
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
-      text: `Привет${userName !== 'Пользователь' ? `, ${userName}` : ''}! 👋\n\nЯ твой AI помощник по задачам. Могу помочь с:\n\n🔍 Анализом продуктивности\n📅 Планированием дня\n✨ Созданием новых задач\n💪 Мотивацией и поддержкой\n📊 Изучением твоих паттернов\n\nО чем хочешь поговорить?`,
+      text: welcomeText,
       isUser: false,
       timestamp: new Date(),
     };
@@ -264,7 +270,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
     };
 
     initializeChat();
-  }, [fadeAnim, chatService, loadTasks, loadChatHistory]);
+  }, [fadeAnim, chatService, loadTasks, loadChatHistory, t, userName]);
 
   // Обновляем задачи при фокусе на экране
   useEffect(() => {
@@ -316,9 +322,9 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
     // Проверяем готовность сервиса
     if (!chatService.isReady()) {
       Alert.alert(
-        'Настройка требуется',
-        'Для работы AI помощника необходимо настроить API ключ OpenAI. Обратитесь к разработчику.',
-        [{ text: 'Понятно' }]
+        t('chat.apiKeyRequired'),
+        t('chat.apiKeyRequiredDesc'),
+        [{ text: t('chat.understand') }]
       );
       return;
     }
@@ -358,7 +364,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
       console.error('Chat Error:', error);
       
       // Показываем конкретное сообщение об ошибке
-      const errorMessage = error.message || 'Извини, произошла ошибка. Проверь интернет соединение и попробуй еще раз. 😔';
+      const errorMessage = error.message || t('errors.networkError');
       addMessage(errorMessage, false);
     } finally {
       setIsLoading(false);
@@ -370,12 +376,12 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
       if (action.type === 'create_task') {
         setTimeout(() => {
           Alert.alert(
-            'Создать новую задачу? ✨',
-            'AI предлагает создать задачу на основе нашего разговора. Хотите перейти к созданию?',
+            t('chat.createTaskSuggestion'),
+            t('chat.createTaskDesc'),
             [
-              { text: 'Нет', style: 'cancel' },
+              { text: t('common.no'), style: 'cancel' },
               { 
-                text: 'Да, создать!', 
+                text: t('chat.createTaskButton'), 
                 onPress: () => {
                   // После создания задачи, обновляем список при возврате
                   const unsubscribe = navigation.addListener('focus', () => {
@@ -405,9 +411,9 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
     // Проверяем готовность сервиса
     if (!chatService.isReady()) {
       Alert.alert(
-        'Настройка требуется',
-        'Для работы AI помощника необходимо настроить API ключ OpenAI. Обратитесь к разработчику.',
-        [{ text: 'Понятно' }]
+        t('chat.apiKeyRequired'),
+        t('chat.apiKeyRequiredDesc'),
+        [{ text: t('chat.understand') }]
       );
       return;
     }
@@ -439,7 +445,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
           response = await chatService.getWeeklyInsights(tasks);
           break;
         default:
-          response = 'Функция пока не реализована';
+          response = t('errors.genericError');
       }
       
       addMessage(response, false);
@@ -447,7 +453,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
       console.error('Analysis Error:', error);
       
       // Показываем конкретное сообщение об ошибке
-      const errorMessage = error.message || 'Произошла ошибка при анализе. Попробуйте еще раз. 😔';
+      const errorMessage = error.message || t('errors.tryAgain');
       addMessage(errorMessage, false);
     } finally {
       setIsLoading(false);
@@ -459,22 +465,46 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
   }, [messages]);
 
   const getTasksStats = () => {
-    const completed = tasks.filter(t => t.status === 'выполнено').length;
-    const inProgress = tasks.filter(t => t.status === 'в прогрессе').length;
+    const completed = tasks.filter(task => task.status === 'выполнено').length;
+    const inProgress = tasks.filter(task => task.status === 'в прогрессе').length;
     const today = new Date();
     const todayStr = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
-    const todayTasks = tasks.filter(t => t.date === todayStr).length;
+    const todayTasks = tasks.filter(task => task.date === todayStr).length;
     
     return { total: tasks.length, completed, inProgress, todayTasks };
   };
 
   const quickActions = [
-    { title: 'Как дела с задачами?', icon: 'checkmark-circle-outline', action: () => sendQuickMessage('Как дела с моими задачами?') },
-    { title: 'Анализ продуктивности', icon: 'analytics-outline', action: () => handleAnalysisAction('productivity') },
-    { title: 'Спланируй день', icon: 'calendar-outline', action: () => handleAnalysisAction('daily_plan') },
-    { title: 'Дай мотивацию!', icon: 'flash-outline', action: () => handleAnalysisAction('motivation') },
-    { title: 'Мои паттерны', icon: 'trending-up-outline', action: () => handleAnalysisAction('patterns') },
-    { title: 'Недельный отчет', icon: 'bar-chart-outline', action: () => handleAnalysisAction('weekly') },
+    { 
+      title: t('chat.actions.howAreThings'), 
+      icon: 'checkmark-circle-outline', 
+      action: () => sendQuickMessage(t('chat.actions.howAreThings'))
+    },
+    { 
+      title: t('chat.actions.productivity'), 
+      icon: 'analytics-outline', 
+      action: () => handleAnalysisAction('productivity') 
+    },
+    { 
+      title: t('chat.actions.dailyPlan'), 
+      icon: 'calendar-outline', 
+      action: () => handleAnalysisAction('daily_plan') 
+    },
+    { 
+      title: t('chat.actions.motivation'), 
+      icon: 'flash-outline', 
+      action: () => handleAnalysisAction('motivation') 
+    },
+    { 
+      title: t('chat.actions.patterns'), 
+      icon: 'trending-up-outline', 
+      action: () => handleAnalysisAction('patterns') 
+    },
+    { 
+      title: t('chat.actions.weeklyReport'), 
+      icon: 'bar-chart-outline', 
+      action: () => handleAnalysisAction('weekly') 
+    },
   ];
 
   const stats = getTasksStats();
@@ -511,9 +541,9 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                 <Image source={DinoImage} style={styles.aiAvatarImage} />
               </View>
               <View style={styles.titleContainer}>
-                <Text style={styles.headerTitle}>AI Помощник</Text>
+                <Text style={styles.headerTitle}>{t('chat.title')}</Text>
                 <Text style={styles.headerSubtitle}>
-                  {stats.total} задач • {stats.completed} выполнено • {stats.todayTasks} на сегодня
+                  {stats.total} {t('stats.tasks')} • {stats.completed} {t('stats.completed')} • {stats.todayTasks} {t('stats.forToday')}
                 </Text>
               </View>
               
@@ -566,7 +596,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
             {isLoadingHistory ? (
               <View style={styles.loadingHistoryContainer}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={styles.loadingHistoryText}>Загрузка истории чата...</Text>
+                <Text style={styles.loadingHistoryText}>{t('chat.loadingHistory')}</Text>
               </View>
             ) : (
               <ScrollView
@@ -605,7 +635,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                           onPress={() => navigation.navigate('Task', { id: undefined })}
                         >
                           <Ionicons name="add-circle" size={16} color="#FFF" />
-                          <Text style={styles.taskSuggestionText}>Создать задачу</Text>
+                          <Text style={styles.taskSuggestionText}>{t('chat.createTask')}</Text>
                         </TouchableOpacity>
                       )}
                       
@@ -638,7 +668,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                       </View>
                       <View style={styles.loadingContent}>
                         <ActivityIndicator size="small" color={theme.colors.primary} />
-                        <Text style={styles.loadingText}>AI думает...</Text>
+                        <Text style={styles.loadingText}>{t('chat.aiThinking')}</Text>
                       </View>
                     </LinearGradient>
                   </View>
@@ -649,7 +679,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
             {/* Quick Actions - всегда доступны */}
             {!isLoadingHistory && (
               <View style={styles.quickActionsSection}>
-                <Text style={styles.quickActionsTitle}>Быстрые действия:</Text>
+                <Text style={styles.quickActionsTitle}>{t('chat.quickActions')}</Text>
                 <ScrollView 
                   horizontal 
                   showsHorizontalScrollIndicator={false}
@@ -692,7 +722,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
                       style={styles.textInput}
                       value={inputText}
                       onChangeText={setInputText}
-                      placeholder="Спроси что-нибудь о своих задачах..."
+                      placeholder={t('chat.placeholder')}
                       placeholderTextColor={theme.colors.textSecondary}
                       multiline
                       maxLength={500}

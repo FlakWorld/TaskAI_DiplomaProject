@@ -20,6 +20,7 @@ import { RootStackParamList } from "../types";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useTheme } from "./ThemeContext";
+import { useLocalization } from "./LocalizationContext";
 
 const CLOUD_NAME = "dvuwiugro";
 const UPLOAD_PRESET = "unsigned_preset";
@@ -28,6 +29,7 @@ type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList,
 
 const EditProfileScreen = () => {
   const { theme } = useTheme();
+  const { t } = useLocalization();
   const navigation = useNavigation<ProfileScreenNavigationProp>();
 
   const [name, setName] = useState("");
@@ -82,11 +84,11 @@ const EditProfileScreen = () => {
       if (json.secure_url) {
         return json.secure_url;
       } else {
-        Alert.alert("Ошибка загрузки", "Не удалось получить URL изображения");
+        Alert.alert(t('errors.loadingError'), t('profile.avatarUploadError'));
         return null;
       }
     } catch (error: any) {
-      Alert.alert("Ошибка", error.message || "Ошибка загрузки изображения");
+      Alert.alert(t('common.error'), error.message || t('profile.avatarUploadError'));
       return null;
     } finally {
       setUploading(false);
@@ -104,7 +106,7 @@ const EditProfileScreen = () => {
       async (response) => {
         if (response.didCancel) return;
         if (response.errorCode) {
-          Alert.alert("Ошибка", response.errorMessage || "Ошибка выбора изображения");
+          Alert.alert(t('common.error'), response.errorMessage || t('profile.imageSelectError'));
           return;
         }
         if (response.assets && response.assets.length > 0) {
@@ -122,11 +124,11 @@ const EditProfileScreen = () => {
 
   const saveProfile = async () => {
     if (!name.trim()) {
-      Alert.alert("Ошибка", "Пожалуйста, заполните имя");
+      Alert.alert(t('common.error'), t('profile.nameRequired'));
       return;
     }
     if (!token) {
-      Alert.alert("Ошибка", "Пользователь не авторизован");
+      Alert.alert(t('common.error'), t('profile.authRequired'));
       return;
     }
 
@@ -150,7 +152,7 @@ const EditProfileScreen = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Ошибка обновления профиля");
+        throw new Error(errorData.error || t('profile.updateError'));
       }
 
       const result = await response.json();
@@ -161,11 +163,11 @@ const EditProfileScreen = () => {
       };
       await AsyncStorage.setItem("user", JSON.stringify(newUserData));
 
-      Alert.alert("Успех", "Профиль успешно обновлён", [
+      Alert.alert(t('common.success'), t('profile.updateSuccess'), [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
-      Alert.alert("Ошибка", error.message || "Ошибка обновления профиля");
+      Alert.alert(t('common.error'), error.message || t('profile.updateError'));
     } finally {
       setLoading(false);
     }
@@ -181,7 +183,7 @@ const EditProfileScreen = () => {
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="arrow-back" size={24} color={theme.colors.primary} />
-          <Text style={styles.backButtonText}>Назад</Text>
+          <Text style={styles.backButtonText}>{t('common.back')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -194,36 +196,36 @@ const EditProfileScreen = () => {
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
               <Icon name="user" size={50} color={theme.colors.textSecondary} />
-              <Text style={styles.avatarPlaceholderText}>Выбрать аватар</Text>
+              <Text style={styles.avatarPlaceholderText}>{t('profile.selectAvatar')}</Text>
             </View>
           )}
         </TouchableOpacity>
 
         {uploading && (
           <View style={styles.uploadingContainer}>
-            <Text style={styles.uploadingText}>Загрузка аватара...</Text>
+            <Text style={styles.uploadingText}>{t('profile.uploadingAvatar')}</Text>
             <ActivityIndicator size="small" color={theme.colors.primary} />
           </View>
         )}
 
         <View style={styles.form}>
-          <Text style={styles.label}>Имя</Text>
+          <Text style={styles.label}>{t('profile.name')}</Text>
           <TextInput
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="Введите имя"
+            placeholder={t('profile.enterName')}
             placeholderTextColor={theme.colors.textSecondary}
             autoCapitalize="words"
             editable={!uploading && !loading}
           />
 
-          <Text style={styles.label}>Фамилия</Text>
+          <Text style={styles.label}>{t('profile.surname')}</Text>
           <TextInput
             style={styles.input}
             value={surname}
             onChangeText={setSurname}
-            placeholder="Введите фамилию"
+            placeholder={t('profile.enterSurname')}
             placeholderTextColor={theme.colors.textSecondary}
             autoCapitalize="words"
             editable={!uploading && !loading}
@@ -240,7 +242,7 @@ const EditProfileScreen = () => {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.saveButtonText}>Сохранить</Text>
+              <Text style={styles.saveButtonText}>{t('common.save')}</Text>
             )}
           </TouchableOpacity>
         </View>

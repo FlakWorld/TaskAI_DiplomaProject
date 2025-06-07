@@ -21,9 +21,10 @@ import { authorize, AuthConfiguration } from 'react-native-app-auth';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'react-native-linear-gradient';
 
-// Импортируем автоматическую тему
+// Импортируем автоматическую тему и локализацию
 import { useAutoTheme } from './useAutoTheme';
 import { getTimeIcon, getTimeText } from './authThemeStyles';
+import { useLocalization } from './LocalizationContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,8 +41,9 @@ type AuthResult = {
 };
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  // Используем автоматическую тему
+  // Используем автоматическую тему и локализацию
   const { theme, isDayTime, isAutoMode } = useAutoTheme();
+  const { loadUserLanguage, t } = useLocalization();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,6 +68,22 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       return isDayTime 
         ? ['#8BC34A', '#6B6F45', '#4A5D23'] // Ваш оригинальный дневной градиент
         : ['#3F51B5', '#5C6BC0', '#7986CB']; // Ночные фиолетовые тона
+    }
+  };
+
+  // Функция для загрузки языковых настроек пользователя
+  const loadUserLanguageSettings = async (userData: any) => {
+    try {
+      // Используем ID пользователя или email как идентификатор
+      const userId = userData.id || userData._id || userData.email;
+      if (userId) {
+        console.log(`🌍 Загружаем языковые настройки для пользователя: ${userId}`);
+        await loadUserLanguage(userId.toString());
+      } else {
+        console.warn('⚠️ Не удалось получить ID пользователя для загрузки языковых настроек');
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки языковых настроек:', error);
     }
   };
 
@@ -98,21 +116,24 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       await AsyncStorage.setItem('token', data.token);
       await AsyncStorage.setItem('user', JSON.stringify(data.user));
 
+      // 🆕 Загружаем языковые настройки пользователя
+      await loadUserLanguageSettings(data.user);
+
       navigation.replace("Home", { refreshed: true });
     } catch (error: unknown) {
       if (error instanceof Error) {
         if (error.message.includes(statusCodes.SIGN_IN_CANCELLED)) {
-          Alert.alert('Отмена', 'Вход через Google был отменён');
+          Alert.alert(t('common.cancel'), 'Вход через Google был отменён');
         } else if (error.message.includes(statusCodes.IN_PROGRESS)) {
           Alert.alert('В процессе', 'Авторизация уже выполняется');
         } else if (error.message.includes(statusCodes.PLAY_SERVICES_NOT_AVAILABLE)) {
-          Alert.alert('Ошибка', 'Сервисы Google Play недоступны');
+          Alert.alert(t('common.error'), 'Сервисы Google Play недоступны');
         } else {
-          Alert.alert('Ошибка', error.message);
+          Alert.alert(t('common.error'), error.message);
         }
         console.error(error);
       } else {
-        Alert.alert('Ошибка', 'Произошла неизвестная ошибка');
+        Alert.alert(t('common.error'), 'Произошла неизвестная ошибка');
         console.error('Unknown error:', error);
       }
     } finally {
@@ -178,6 +199,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       await AsyncStorage.setItem('token', authResponse.token);
       await AsyncStorage.setItem('user', JSON.stringify(authResponse.user));
+
+      // 🆕 Загружаем языковые настройки пользователя
+      await loadUserLanguageSettings(authResponse.user);
+
       console.log('Microsoft authentication successful');
       navigation.replace('Home', { refreshed: true });
     } catch (error) {
@@ -196,7 +221,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert(
         'Microsoft Authentication Error',
         errorMessage,
-        [{ text: 'OK', onPress: () => console.log('Alert closed') }]
+        [{ text: t('common.ok'), onPress: () => console.log('Alert closed') }]
       );
     } finally {
       setMicrosoftLoading(false);
@@ -210,12 +235,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert(t('common.error'), "Please fill in all fields");
       return;
     }
 
     if (!validateEmail(email)) {
-      Alert.alert("Error", "Please enter a valid email address");
+      Alert.alert(t('common.error'), "Please enter a valid email address");
       return;
     }
 
@@ -230,6 +255,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       await AsyncStorage.setItem("token", res.token);
       await AsyncStorage.setItem("user", JSON.stringify(res.user));
+
+      // 🆕 Загружаем языковые настройки пользователя
+      await loadUserLanguageSettings(res.user);
 
       navigation.replace("Home", { refreshed: true });
     } catch (error) {

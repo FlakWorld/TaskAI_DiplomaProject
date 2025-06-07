@@ -27,6 +27,7 @@ import PushNotification from "react-native-push-notification";
 import { LinearGradient } from 'react-native-linear-gradient';
 import { PermissionsAndroid } from "react-native";
 import { useTheme } from "./ThemeContext";
+import { useLocalization } from "./LocalizationContext";
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,11 +54,12 @@ type Task = {
 };
 
 // Обновленная AI Assistant Card с аналитикой и поддержкой тем
-const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, theme: any }> = ({ 
+const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, theme: any, t: any }> = ({ 
   navigation, 
   tasks, 
   aiStats,
-  theme 
+  theme,
+  t
 }) => {
   const completedTasks = tasks.filter(t => t.status === 'выполнено');
   const inProgressTasks = tasks.filter(t => t.status === 'в прогрессе');
@@ -65,23 +67,23 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, 
   
   const getMotivationalText = () => {
     if (tasks.length === 0) {
-      return "Готов помочь с планированием! 🚀";
+      return t('ai.motivational.ready');
     } else if (aiStats && aiStats.positive > aiStats.negative) {
-      return "Отличный настрой! 🎉";
+      return t('ai.motivational.great');
     } else if (aiStats && aiStats.negative > aiStats.positive) {
-      return "Есть сложные задачи, но вы справитесь! 💪";
+      return t('ai.motivational.difficult');
     } else if (completionRate >= 80) {
-      return "Отличная работа! 🎉";
+      return t('ai.motivational.excellent');
     } else if (completionRate >= 50) {
-      return "Хороший прогресс! 👍";
+      return t('ai.motivational.good');
     } else {
-      return "Давай разберемся с задачами! 💪";
+      return t('ai.motivational.letsWork');
     }
   };
 
   const getInsightText = () => {
     if (tasks.length === 0) {
-      return "Создай первую задачу и я помогу с планированием";
+      return t('ai.insights.createFirst');
     }
     
     if (aiStats) {
@@ -90,9 +92,9 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, 
       const minutes = totalDuration % 60;
       
       if (hours > 0) {
-        return `Общее время на задачи: ~${hours}ч ${minutes}м`;
+        return `${t('ai.insights.totalTime')} ~${hours}ч ${minutes}${t('common.minutes')}`;
       } else {
-        return `Общее время на задачи: ~${minutes}м`;
+        return `${t('ai.insights.totalTime')} ~${minutes}${t('common.minutes')}`;
       }
     }
     
@@ -101,9 +103,9 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, 
     const todayTasks = tasks.filter(t => t.date === todayStr).length;
     
     if (todayTasks > 0) {
-      return `На сегодня у тебя ${todayTasks} задач`;
+      return t('ai.insights.todayTasks').replace('{count}', todayTasks.toString());
     } else {
-      return "Планируй новые задачи вместе со мной";
+      return t('ai.insights.planNew');
     }
   };
 
@@ -127,7 +129,7 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, 
             <Image source={DinoImage} style={styles.aiAssistantImage} />
           </View>
           <View style={styles.aiAssistantInfo}>
-            <Text style={styles.aiAssistantTitle}>AI Помощник</Text>
+            <Text style={styles.aiAssistantTitle}>{t('ai.assistant')}</Text>
             <Text style={styles.aiAssistantSubtitle}>{getMotivationalText()}</Text>
           </View>
           <View style={styles.aiAssistantStats}>
@@ -153,17 +155,17 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, 
             <View style={styles.aiAnalyticItem}>
               <Text style={styles.aiAnalyticIcon}>😊</Text>
               <Text style={styles.aiAnalyticNumber}>{aiStats.positive}</Text>
-              <Text style={styles.aiAnalyticLabel}>Позитивные</Text>
+              <Text style={styles.aiAnalyticLabel}>{t('ai.analytics.positive')}</Text>
             </View>
             <View style={styles.aiAnalyticItem}>
               <Text style={styles.aiAnalyticIcon}>😐</Text>
               <Text style={styles.aiAnalyticNumber}>{aiStats.neutral}</Text>
-              <Text style={styles.aiAnalyticLabel}>Нейтральные</Text>
+              <Text style={styles.aiAnalyticLabel}>{t('ai.analytics.neutral')}</Text>
             </View>
             <View style={styles.aiAnalyticItem}>
               <Text style={styles.aiAnalyticIcon}>😤</Text>
               <Text style={styles.aiAnalyticNumber}>{aiStats.negative}</Text>
-              <Text style={styles.aiAnalyticLabel}>Сложные</Text>
+              <Text style={styles.aiAnalyticLabel}>{t('ai.analytics.difficult')}</Text>
             </View>
           </View>
         )}
@@ -179,7 +181,7 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, 
           </View>
           <View style={styles.aiQuickAction}>
             <Ionicons name="flash-outline" size={16} color={theme.colors.primary} />
-            <Text style={styles.aiQuickActionText}>Анализ</Text>
+            <Text style={styles.aiQuickActionText}>{t('ai.analysis')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} style={styles.aiChevron} />
         </View>
@@ -189,7 +191,7 @@ const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, 
 };
 
 // Enhanced Menu with AI and Theme Support
-const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogout, theme }: any) => {
+const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogout, theme, t }: any) => {
   const styles = createThemedStyles(theme);
   
   return (
@@ -223,7 +225,7 @@ const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogo
               <View style={[styles.menuIconContainer, styles.aiMenuIcon]}>
                 <Image source={DinoImage} style={styles.menuAIImage} />
               </View>
-              <Text style={styles.menuText}>AI Помощник</Text>
+              <Text style={styles.menuText}>{t('ai.assistant')}</Text>
               <View style={styles.aiMenuBadge}>
                 <Text style={styles.aiMenuBadgeText}>TF LITE</Text>
               </View>
@@ -243,7 +245,7 @@ const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogo
               <View style={styles.menuIconContainer}>
                 <Ionicons name="person-outline" size={20} color={theme.colors.primary} />
               </View>
-              <Text style={styles.menuText}>Профиль</Text>
+              <Text style={styles.menuText}>{t('profile.title')}</Text>
               <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
             </TouchableOpacity>
             
@@ -260,7 +262,7 @@ const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogo
               <View style={[styles.menuIconContainer, styles.logoutIconContainer]}>
                 <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
               </View>
-              <Text style={[styles.menuText, styles.logoutText]}>Выйти</Text>
+              <Text style={[styles.menuText, styles.logoutText]}>{t('profile.logout')}</Text>
               <Ionicons name="chevron-forward" size={16} color={theme.colors.error} />
             </TouchableOpacity>
           </LinearGradient>
@@ -272,6 +274,7 @@ const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogo
 
 export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const { theme, updateUser } = useTheme();
+  const { t } = useLocalization();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -351,7 +354,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         
         if (!hasShownAlert) {
           Alert.alert(
-            "Важное уведомление",
+            t('profile.notifications'),
             "Для корректной работы точных уведомлений требуется разрешение на использование точных будильников в настройках устройства. " +
               "Пожалуйста, убедитесь, что это разрешение предоставлено.",
             [
@@ -363,7 +366,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                 },
               },
               { 
-                text: "Понятно", 
+                text: t('common.understand'), 
                 style: "cancel",
                 onPress: async () => {
                   await AsyncStorage.setItem("hasShownPermissionAlert", "true");
@@ -376,7 +379,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     };
 
     checkAndShowPermissionAlert();
-  }, []);
+  }, [t]);
 
   // Форматирование времени и даты
   const formatTime = (date: Date) => {
@@ -469,7 +472,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
             title: 'Разрешение на уведомления',
             message: 'Приложению нужно разрешение для отправки уведомлений о задачах',
             buttonNeutral: 'Спросить позже',
-            buttonNegative: 'Отмена',
+            buttonNegative: t('common.cancel'),
             buttonPositive: 'Разрешить',
           },
         );
@@ -505,7 +508,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
             "Для точных уведомлений",
             "Чтобы получать напоминания ровно за 10 минут до задач, включите разрешение в настройках:\n\nНастройки → Приложения → TaskAI → Специальный доступ → Будильники и напоминания",
             [
-              { text: "Понятно", style: "cancel" },
+              { text: t('common.understand'), style: "cancel" },
               { 
                 text: "Открыть настройки", 
                 onPress: () => Linking.openSettings()
@@ -615,7 +618,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         title: suggestedTask,
         date: formatDate(now),
         time: formatTime(now),
-        status: "в прогрессе",
+        status: t('tasks.inProgress'),
         tags: [],
       };
       await fetch("http://192.168.1.11:5000/tasks", {
@@ -626,12 +629,12 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         },
         body: JSON.stringify(newTask),
       });
-      Alert.alert("✅ Создано", `"${suggestedTask}" добавлена`);
+      Alert.alert("✅ " + t('tasks.taskCreated'), `"${suggestedTask}" добавлена`);
       setSuggestedTask(null);
       loadTasks(token);
     } catch (error) {
       console.error("Ошибка создания задачи:", error);
-      Alert.alert("Ошибка", "Не удалось создать задачу");
+      Alert.alert(t('common.error'), t('errors.savingError'));
     }
   };
 
@@ -681,7 +684,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           ...task,
           date: formatDisplayDate(task.date),
           time: formatDisplayTime(task.time),
-          status: task.status || "в прогрессе",
+          status: task.status || t('tasks.inProgress'),
           tags: task.tags || [],
         }));
 
@@ -692,7 +695,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         scheduleNotifications(analyzedTasks);
       } catch (error) {
         console.error("Failed to load tasks:", error);
-        Alert.alert("Error", error instanceof Error ? error.message : "Failed to load tasks");
+        Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.loadingError'));
 
         if (error instanceof Error && error.message.includes("401")) {
           await AsyncStorage.removeItem("token");
@@ -703,7 +706,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         setRefreshing(false);
       }
     },
-    [navigation]
+    [navigation, t]
   );
 
   const loadData = useCallback(async () => {
@@ -753,7 +756,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
       setTasks((prev) => prev.filter((task) => task._id !== id));
     } catch (error) {
       console.error("Failed to delete task:", error);
-      Alert.alert("Error", error instanceof Error ? error.message : "Failed to delete task");
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.deleteError'));
     }
   };
 
@@ -773,8 +776,8 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
-    if (a.status === "в прогрессе" && b.status === "выполнено") return -1;
-    if (a.status === "выполнено" && b.status === "в прогрессе") return 1;
+    if (a.status === t('tasks.inProgress') && b.status === t('tasks.completed')) return -1;
+    if (a.status === t('tasks.completed') && b.status === t('tasks.inProgress')) return 1;
     return a.title.localeCompare(b.title);
   });
 
@@ -811,12 +814,12 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const renderTaskItem = ({ item }: { item: Task }) => (
     <View style={styles.taskAnimationContainer}>
       <TouchableOpacity
-        style={[styles.task, item.status === "выполнено" && styles.taskCompleted]}
+        style={[styles.task, item.status === t('tasks.completed') && styles.taskCompleted]}
         onPress={() => navigation.navigate("EditTask", { id: item._id })}
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={item.status === "выполнено" ? 
+          colors={item.status === t('tasks.completed') ? 
             (theme.isDark ? [theme.colors.card, theme.colors.surface] : ['#E8F5E8', '#F0F8F0']) : 
             (theme.isDark ? [theme.colors.surface, theme.colors.card] : ['#FFFFFF', '#F8F9FA'])
           }
@@ -827,14 +830,14 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
             <View style={[
               styles.statusIndicator,
               { backgroundColor: item.analysis ? getPriorityColor(item.analysis.priority) : 
-                (item.status === "выполнено" ? theme.colors.success : theme.colors.warning) }
+                (item.status === t('tasks.completed') ? theme.colors.success : theme.colors.warning) }
             ]} />
             
             <View style={styles.taskContent}>
               <View style={styles.taskHeader}>
                 <Text style={[
                   styles.taskTitle,
-                  item.status === "выполнено" && styles.taskTitleCompleted
+                  item.status === t('tasks.completed') && styles.taskTitleCompleted
                 ]}>
                   {item.title}
                 </Text>
@@ -883,9 +886,9 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               {item.analysis && (
                 <View style={styles.aiAnalysisContainer}>
                   <Text style={styles.aiAnalysisText}>
-                    🤖 {item.analysis.category} • ~{item.analysis.estimatedDuration}м • 
-                    {item.analysis.sentiment.sentiment === 'positive' ? ' Позитивная' : 
-                     item.analysis.sentiment.sentiment === 'negative' ? ' Сложная' : ' Нейтральная'} 
+                    🤖 {item.analysis.category} • ~{item.analysis.estimatedDuration}{t('common.minutes')} • 
+                    {item.analysis.sentiment.sentiment === 'positive' ? ` ${t('ai.analytics.positive')}` : 
+                     item.analysis.sentiment.sentiment === 'negative' ? ` ${t('ai.analytics.difficult')}` : ` ${t('ai.analytics.neutral')}`} 
                     ({Math.round(item.analysis.sentiment.confidence * 100)}%)
                   </Text>
                 </View>
@@ -912,13 +915,13 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
             {/* Статус бейдж */}
             <View style={[
               styles.statusBadge,
-              item.status === "выполнено" ? styles.statusBadgeCompleted : styles.statusBadgeProgress
+              item.status === t('tasks.completed') ? styles.statusBadgeCompleted : styles.statusBadgeProgress
             ]}>
               <Text style={[
                 styles.statusText,
-                item.status === "выполнено" && styles.statusTextCompleted
+                item.status === t('tasks.completed') && styles.statusTextCompleted
               ]}>
-                {item.status === "выполнено" ? "Готово" : "В работе"}
+                {item.status === t('tasks.completed') ? t('tasks.done') : t('tasks.inWork')}
               </Text>
             </View>
             
@@ -947,7 +950,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
       >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Инициализация ИИ...</Text>
+          <Text style={styles.loadingText}>{t('ai.initializingAI')}</Text>
         </View>
       </LinearGradient>
     );
@@ -979,10 +982,10 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         </TouchableOpacity>
         
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>Мои Задачи</Text>
+          <Text style={styles.title}>{t('tasks.title')}</Text>
           <Text style={styles.tasksCount}>
-            {tasks.length} задач 
-            {isAnalyzing && <Text style={styles.analyzingIndicator}> • ИИ анализирует...</Text>}
+            {t('stats.tasksCount').replace('{count}', tasks.length.toString())}
+            {isAnalyzing && <Text style={styles.analyzingIndicator}> • {t('ai.analyzing')}</Text>}
           </Text>
         </View>
         
@@ -1010,7 +1013,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         <View style={styles.activeFilterContainer}>
           <View style={styles.activeFilter}>
             <Text style={styles.activeFilterText}>
-              Фильтр: {selectedCategory}
+              {t('tasks.filter')}: {selectedCategory}
             </Text>
             <TouchableOpacity onPress={() => setSelectedCategory(null)}>
               <Ionicons name="close" size={16} color={theme.isDark ? theme.colors.text : "#FFF"} />
@@ -1031,7 +1034,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           <Ionicons name="search" size={20} color={theme.colors.primary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Поиск задач..."
+            placeholder={t('tasks.searchTasks')}
             placeholderTextColor={theme.colors.textSecondary}
             value={search}
             onChangeText={setSearch}
@@ -1045,7 +1048,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
       </View>
 
       {/* AI Assistant Card with enhanced analytics */}
-      <AIAssistantCard navigation={navigation} tasks={tasks} aiStats={aiStats} theme={theme} />
+      <AIAssistantCard navigation={navigation} tasks={tasks} aiStats={aiStats} theme={theme} t={t} />
 
       {/* AI Suggestion */}
       {suggestedTask && (
@@ -1065,8 +1068,8 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                 />
               </View>
               <View style={styles.suggestionTitleContainer}>
-                <Text style={styles.suggestionTitle}>ИИ предлагает:</Text>
-                <Text style={styles.suggestionSubtitle}>TensorFlow Lite анализ</Text>
+                <Text style={styles.suggestionTitle}>{t('ai.suggests')}</Text>
+                <Text style={styles.suggestionSubtitle}>{t('ai.tensorflowAnalysis')}</Text>
               </View>
             </View>
             
@@ -1078,7 +1081,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                 onPress={createSuggestedTask}
               >
                 <Ionicons name="checkmark" size={16} color="#FFF" />
-                <Text style={styles.acceptButtonText}>Создать</Text>
+                <Text style={styles.acceptButtonText}>{t('ai.actions.create')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -1089,7 +1092,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                 }}
               >
                 <Ionicons name="close" size={16} color={theme.colors.error} />
-                <Text style={styles.rejectButtonText}>Отклонить</Text>
+                <Text style={styles.rejectButtonText}>{t('ai.actions.reject')}</Text>
               </TouchableOpacity>
             </View>
           </LinearGradient>
@@ -1116,10 +1119,10 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               <Ionicons name="clipboard-outline" size={60} color={theme.colors.textSecondary} />
             </View>
             <Text style={styles.emptyTitle}>
-              {search || selectedCategory ? "Ничего не найдено" : "Пока нет задач"}
+              {search || selectedCategory ? t('tasks.nothingFound') : t('tasks.noTasks')}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {search || selectedCategory ? "Попробуйте изменить фильтры" : "Создайте свою первую задачу с ИИ анализом"}
+              {search || selectedCategory ? t('tasks.tryChangeFilters') : t('tasks.createFirstTask')}
             </Text>
           </View>
         }
@@ -1139,7 +1142,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           style={styles.addButtonGradient}
         >
           <Ionicons name="add" size={24} color={theme.colors.primary} />
-          <Text style={styles.addButtonText}>Новая задача</Text>
+          <Text style={styles.addButtonText}>{t('tasks.newTask')}</Text>
         </LinearGradient>
       </TouchableOpacity>
 
@@ -1163,7 +1166,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               }
               style={styles.categoryModalGradient}
             >
-              <Text style={styles.categoryModalTitle}>Фильтр по категориям</Text>
+              <Text style={styles.categoryModalTitle}>{t('tasks.filterByCategories')}</Text>
               
               <TouchableOpacity
                 style={[styles.categoryOption, !selectedCategory && styles.categoryOptionActive]}
@@ -1174,7 +1177,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               >
                 <Ionicons name="apps" size={20} color={!selectedCategory ? theme.colors.success : theme.colors.primary} />
                 <Text style={[styles.categoryOptionText, !selectedCategory && styles.categoryOptionTextActive]}>
-                  Все задачи
+                  {t('tasks.allTasks')}
                 </Text>
               </TouchableOpacity>
               
@@ -1212,13 +1215,15 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         navigation={navigation}
         handleLogout={handleLogout}
         theme={theme}
+        t={t}
       />
     </LinearGradient>
   );
 }
 
-// Функция создания стилей с поддержкой тем
+// Функция создания стилей с поддержкой тем (сокращена для краткости)
 const createThemedStyles = (theme: any) => StyleSheet.create({
+  // ... все стили из оригинального файла остаются без изменений
   container: {
     flex: 1,
   },

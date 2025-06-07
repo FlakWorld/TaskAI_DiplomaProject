@@ -4,6 +4,10 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from 'react-native-linear-gradient';
 
+// Импортируем автоматическую тему
+import { useAutoTheme } from './useAutoTheme';
+import { getTimeIcon, getTimeText } from './authThemeStyles';
+
 type RootStackParamList = {
     Login: undefined;
 };
@@ -17,7 +21,24 @@ const { width, height } = Dimensions.get('window');
 
 const StartScreen = () => {
   const navigation = useNavigation<StartScreenNavigationProp>();
+  
+  // Используем автоматическую тему
+  const { theme, isDayTime, isAutoMode } = useAutoTheme();
+  
   const [scaleValue, setScaleValue] = React.useState(new Animated.Value(1));
+
+  // Функция для получения градиента в зависимости от времени и темы
+  const getBackgroundGradient = () => {
+    if (theme.isDark) {
+      return isDayTime 
+        ? ['#1E3A8A', '#3B82F6', '#60A5FA'] // Дневные синие тона для темной темы
+        : ['#0F172A', '#1E293B', '#334155']; // Ночные серые тона
+    } else {
+      return isDayTime 
+        ? ['#8BC34A', '#6B6F45', '#4A5D23'] // Ваш оригинальный дневной градиент
+        : ['#3F51B5', '#5C6BC0', '#7986CB']; // Ночные фиолетовые тона
+    }
+  };
 
   const handlePressIn = () => {
     Animated.spring(scaleValue, {
@@ -33,13 +54,28 @@ const StartScreen = () => {
     }).start();
   };
 
+  // Создаем стили с поддержкой автоматической темы
+  const styles = createThemedStyles(theme, isDayTime);
+
   return (
     <LinearGradient
-      colors={['#8BC34A', '#6B6F45', '#4A5D23']}
+      colors={getBackgroundGradient()}
       style={styles.container}
       start={{x: 0, y: 0}}
       end={{x: 1, y: 1}}
     >
+      {/* Индикатор автоматической темы */}
+      {isAutoMode && (
+        <View style={styles.timeIndicator}>
+          <Text style={styles.timeIndicatorIcon}>
+            {getTimeIcon(isDayTime)}
+          </Text>
+          <Text style={styles.timeIndicatorText}>
+            Авто • {getTimeText(isDayTime)}
+          </Text>
+        </View>
+      )}
+
       {/* Декоративные элементы */}
       <View style={styles.decorativeCircle1} />
       <View style={styles.decorativeCircle2} />
@@ -48,7 +84,12 @@ const StartScreen = () => {
       <View style={styles.content}>
         <View style={styles.titleContainer}>
           <Text style={styles.title}>TaskAI</Text>
-          <Text style={styles.subtitle}>Умный помощник для ваших задач</Text>
+          <Text style={styles.subtitle}>
+            {isDayTime ? 
+              'Умный помощник для ваших задач' : 
+              'Планируйте эффективно даже ночью'
+            }
+          </Text>
           <View style={styles.titleUnderline} />
         </View>
 
@@ -75,6 +116,21 @@ const StartScreen = () => {
           </View>
         </View>
 
+        {/* Дополнительная информация об автоматической теме */}
+        <View style={styles.autoThemeInfo}>
+          <View style={styles.autoThemeIcon}>
+            <Text style={styles.autoThemeIconText}>
+              {isDayTime ? '☀️' : '🌙'}
+            </Text>
+          </View>
+          <Text style={styles.autoThemeText}>
+            {isDayTime ? 
+              'Дневная тема автоматически активна (06:00-18:00)' : 
+              'Ночная тема автоматически активна (18:00-06:00)'
+            }
+          </Text>
+        </View>
+
         <Animated.View style={[styles.buttonContainer, { transform: [{ scale: scaleValue }] }]}>
           <TouchableOpacity
             style={styles.button}
@@ -84,7 +140,7 @@ const StartScreen = () => {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={['#FFF', '#F8F8F8']}
+              colors={theme.isDark ? [theme.colors.surface, theme.colors.card] : ['#FFF', '#F8F8F8']}
               style={styles.buttonGradient}
               start={{x: 0, y: 0}}
               end={{x: 1, y: 1}}
@@ -101,9 +157,33 @@ const StartScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+// Создаем стили с поддержкой темы
+const createThemedStyles = (theme: any, isDayTime: boolean) => StyleSheet.create({
   container: {
     flex: 1,
+  },
+  timeIndicator: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.isDark ? 
+      'rgba(0, 0, 0, 0.3)' : 
+      'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    zIndex: 10,
+  },
+  timeIndicatorIcon: {
+    fontSize: 16,
+  },
+  timeIndicatorText: {
+    fontSize: 12,
+    color: theme.isDark ? theme.colors.text : '#FFFFFF',
+    fontWeight: '500',
   },
   decorativeCircle1: {
     position: 'absolute',
@@ -144,7 +224,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 48,
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.text : '#FFF',
     fontWeight: 'bold',
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
@@ -154,7 +234,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: theme.isDark ? theme.colors.textSecondary : 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     marginTop: 10,
     fontWeight: '300',
@@ -162,7 +242,7 @@ const styles = StyleSheet.create({
   titleUnderline: {
     width: 80,
     height: 4,
-    backgroundColor: '#FFF',
+    backgroundColor: theme.isDark ? theme.colors.primary : '#FFF',
     marginTop: 15,
     borderRadius: 2,
   },
@@ -170,7 +250,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginBottom: 60,
+    marginBottom: 40,
   },
   featureItem: {
     alignItems: 'center',
@@ -188,9 +268,40 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   featureText: {
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.text : '#FFF',
     fontSize: 14,
     fontWeight: '500',
+  },
+  autoThemeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.isDark ? 
+      'rgba(255, 255, 255, 0.1)' : 
+      'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginBottom: 40,
+    maxWidth: '90%',
+  },
+  autoThemeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  autoThemeIconText: {
+    fontSize: 18,
+  },
+  autoThemeText: {
+    flex: 1,
+    color: theme.isDark ? theme.colors.text : '#FFF',
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   buttonContainer: {
     width: '100%',
@@ -213,7 +324,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 20,
-    color: '#6B6F45',
+    color: theme.colors.primary,
     fontWeight: 'bold',
     marginRight: 10,
   },
@@ -221,16 +332,15 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#6B6F45',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   arrowText: {
-    color: '#FFF',
+    color: theme.isDark ? theme.colors.background : '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
 });
-
 
 export default StartScreen;

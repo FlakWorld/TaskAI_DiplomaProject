@@ -16,9 +16,37 @@ import AIChatScreen from './screens/AIChatScreen';
 import { RootStackParamList } from "./types";
 import linking from "./server/linking";
 import PushNotification from "react-native-push-notification";
-import { ThemeProvider } from "./screens/ThemeContext";
+import { ThemeProvider, useTheme } from "./screens/ThemeContext";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Компонент-обертка для навигации с темой
+const AppNavigator = () => {
+  const { updateUser } = useTheme();
+
+  useEffect(() => {
+    // Обновляем пользователя и тему при запуске приложения
+    updateUser();
+  }, [updateUser]);
+
+  return (
+    <NavigationContainer linking={linking}>
+      <Stack.Navigator initialRouteName="Start" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Start" component={StartScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Task" component={CreationTask} />
+        <Stack.Screen name="EditTask" component={TaskDetail} />
+        <Stack.Screen name="EditTaskForm" component={EditTaskForm} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="AIChat" component={AIChatScreen} options={{ headerShown: false }}/>
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+};
 
 export default function App() {
   useEffect(() => {
@@ -68,21 +96,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <NavigationContainer linking={linking}>
-        <Stack.Navigator initialRouteName="Start" screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Start" component={StartScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Task" component={CreationTask} />
-          <Stack.Screen name="EditTask" component={TaskDetail} />
-          <Stack.Screen name="EditTaskForm" component={EditTaskForm} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ headerShown: false }}/>
-          <Stack.Screen name="AIChat" component={AIChatScreen} options={{ headerShown: false }}/>
-        </Stack.Navigator>
-      </NavigationContainer>
+      <AppNavigator />
     </ThemeProvider>
   );
 }

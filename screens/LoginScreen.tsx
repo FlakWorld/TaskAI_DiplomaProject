@@ -21,6 +21,10 @@ import { authorize, AuthConfiguration } from 'react-native-app-auth';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'react-native-linear-gradient';
 
+// Импортируем автоматическую тему
+import { useAutoTheme } from './useAutoTheme';
+import { getTimeIcon, getTimeText } from './authThemeStyles';
+
 const { width, height } = Dimensions.get('window');
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
@@ -36,6 +40,9 @@ type AuthResult = {
 };
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
+  // Используем автоматическую тему
+  const { theme, isDayTime, isAutoMode } = useAutoTheme();
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,9 +52,22 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '221855869276-6egb238f5i1ivimtrgme6s9nm9bdtad1.apps.googleusercontent.com' // из Google Cloud Console, обязательно web client ID!
+      webClientId: '221855869276-6egb238f5i1ivimtrgme6s9nm9bdtad1.apps.googleusercontent.com'
     });
   }, []);
+
+  // Функция для получения градиента в зависимости от времени и темы
+  const getBackgroundGradient = () => {
+    if (theme.isDark) {
+      return isDayTime 
+        ? ['#1E3A8A', '#3B82F6', '#60A5FA'] // Дневные синие тона для темной темы
+        : ['#0F172A', '#1E293B', '#334155']; // Ночные серые тона
+    } else {
+      return isDayTime 
+        ? ['#8BC34A', '#6B6F45', '#4A5D23'] // Ваш оригинальный дневной градиент
+        : ['#3F51B5', '#5C6BC0', '#7986CB']; // Ночные фиолетовые тона
+    }
+  };
 
   const signInWithGoogle = async () => {
     try {
@@ -60,7 +80,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       console.log('Google user info:', userInfo);
 
-      // Отправляем idToken на сервер для регистрации/логина
       const response = await fetch('http://192.168.1.11:5000/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,7 +100,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       navigation.replace("Home", { refreshed: true });
     } catch (error: unknown) {
-      if (error instanceof Error) { // Проверяем, что error — это объект типа Error
+      if (error instanceof Error) {
         if (error.message.includes(statusCodes.SIGN_IN_CANCELLED)) {
           Alert.alert('Отмена', 'Вход через Google был отменён');
         } else if (error.message.includes(statusCodes.IN_PROGRESS)) {
@@ -109,7 +128,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       : 'msauth://com.taskai',
     scopes: ['openid', 'profile', 'email', 'offline_access', 'User.Read'],
     additionalParameters: {
-      prompt: 'select_account' as const, // Явное приведение типа
+      prompt: 'select_account' as const,
     },
     serviceConfiguration: {
       authorizationEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
@@ -122,7 +141,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       setMicrosoftLoading(true);
       console.log('Initiating Microsoft login...');
       
-      // Сбрасываем предыдущую сессию
       await AsyncStorage.removeItem('microsoft_auth_state');
 
       const result: AuthResult = await authorize(microsoftConfig);
@@ -232,10 +250,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  // Создаем стили с поддержкой автоматической темы
+  const styles = createThemedStyles(theme, isDayTime);
 
   return (
     <LinearGradient
-      colors={['#8BC34A', '#6B6F45', '#4A5D23']}
+      colors={getBackgroundGradient()}
       style={styles.container}
       start={{x: 0, y: 0}}
       end={{x: 1, y: 1}}
@@ -245,6 +265,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardView}
         >
+          {/* Индикатор автоматической темы */}
+          {isAutoMode && (
+            <View style={styles.timeIndicator}>
+              <Text style={styles.timeIndicatorIcon}>
+                {getTimeIcon(isDayTime)}
+              </Text>
+              <Text style={styles.timeIndicatorText}>
+                Авто • {getTimeText(isDayTime)}
+              </Text>
+            </View>
+          )}
+
           {/* Декоративные элементы */}
           <View style={styles.decorativeCircle1} />
           <View style={styles.decorativeCircle2} />
@@ -259,11 +291,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email</Text>
                 <View style={styles.inputWrapper}>
-                  <Ionicons name="mail-outline" size={20} color="#6B6F45" style={styles.inputIcon} />
+                  <Ionicons name="mail-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="Введите ваш email"
-                    placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                    placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -276,11 +308,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Пароль</Text>
                 <View style={styles.inputWrapper}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#6B6F45" style={styles.inputIcon} />
+                  <Ionicons name="lock-closed-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
                     placeholder="Введите ваш пароль"
-                    placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                    placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={secureEntry}
@@ -294,7 +326,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     <Ionicons 
                       name={secureEntry ? "eye-off" : "eye"} 
                       size={20} 
-                      color="#6B6F45" 
+                      color={theme.colors.primary}
                     />
                   </TouchableOpacity>
                 </View>
@@ -306,13 +338,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 disabled={loading || microsoftLoading || googleLoading}
               >
                 <LinearGradient
-                  colors={['#FFF', '#F8F8F8']}
+                  colors={theme.isDark ? [theme.colors.surface, theme.colors.card] : ['#FFF', '#F8F8F8']}
                   style={styles.buttonGradient}
                   start={{x: 0, y: 0}}
                   end={{x: 0, y: 1}}
                 >
                   {loading ? (
-                    <ActivityIndicator color="#6B6F45" />
+                    <ActivityIndicator color={theme.colors.primary} />
                   ) : (
                     <Text style={styles.buttonText}>Войти</Text>
                   )}
@@ -376,7 +408,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+// Создаем стили с поддержкой темы
+const createThemedStyles = (theme: any, isDayTime: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -385,6 +418,29 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  timeIndicator: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.isDark ? 
+      'rgba(0, 0, 0, 0.3)' : 
+      'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    zIndex: 10,
+  },
+  timeIndicatorIcon: {
+    fontSize: 16,
+  },
+  timeIndicatorText: {
+    fontSize: 12,
+    color: theme.isDark ? theme.colors.text : '#FFFFFF',
+    fontWeight: '500',
   },
   decorativeCircle1: {
     position: 'absolute',
@@ -404,25 +460,6 @@ const styles = StyleSheet.create({
     bottom: 100,
     left: -20,
   },
-  backButton: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 50 : 40,
-    left: 20,
-    zIndex: 1,
-  },
-  backButtonContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
   content: {
     flex: 1,
     paddingHorizontal: 30,
@@ -436,7 +473,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#FFF",
+    color: theme.isDark ? theme.colors.text : "#FFF",
     textAlign: "center",
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -444,13 +481,15 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: "rgba(255, 255, 255, 0.8)",
+    color: theme.isDark ? theme.colors.textSecondary : "rgba(255, 255, 255, 0.8)",
     textAlign: "center",
     marginTop: 8,
     fontWeight: '300',
   },
   formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.surface}95` : 
+      'rgba(255, 255, 255, 0.95)',
     borderRadius: 25,
     padding: 30,
     shadowColor: '#000',
@@ -463,7 +502,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    color: "#6B6F45",
+    color: theme.colors.primary,
     marginBottom: 8,
     fontSize: 14,
     fontWeight: "600",
@@ -471,10 +510,12 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: theme.isDark ? theme.colors.card : '#F8F9FA',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: 'rgba(107, 111, 69, 0.2)',
+    borderColor: theme.isDark ? 
+      `${theme.colors.primary}30` : 
+      'rgba(107, 111, 69, 0.2)',
   },
   inputIcon: {
     marginLeft: 15,
@@ -485,7 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingRight: 15,
     fontSize: 16,
-    color: "#333",
+    color: theme.colors.text,
   },
   eyeIcon: {
     padding: 15,
@@ -494,7 +535,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginTop: 10,
     overflow: 'hidden',
-    shadowColor: '#6B6F45',
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -510,7 +551,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#6B6F45",
+    color: theme.colors.primary,
   },
   divider: {
     flexDirection: 'row',
@@ -520,11 +561,15 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(107, 111, 69, 0.3)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.border}60` : 
+      'rgba(107, 111, 69, 0.3)',
   },
   dividerText: {
     marginHorizontal: 15,
-    color: 'rgba(107, 111, 69, 0.6)',
+    color: theme.isDark ? 
+      theme.colors.textSecondary : 
+      'rgba(107, 111, 69, 0.6)',
     fontSize: 14,
   },
   socialButton: {
@@ -570,11 +615,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   registerText: {
-    color: "rgba(107, 111, 69, 0.8)",
+    color: theme.isDark ? 
+      theme.colors.textSecondary : 
+      "rgba(107, 111, 69, 0.8)",
     fontSize: 14,
   },
   registerHighlight: {
-    color: "#6B6F45",
+    color: theme.colors.primary,
     fontWeight: "bold",
   },
 });

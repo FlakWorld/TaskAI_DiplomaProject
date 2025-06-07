@@ -23,7 +23,7 @@ type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList,
 
 const ProfileScreen = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
-  const { theme, isDark, toggleTheme } = useTheme();
+  const { theme, isDark, toggleTheme, updateUser } = useTheme();
   const [user, setUser] = useState<{
     avatar?: string | null;
     name?: string;
@@ -35,6 +35,9 @@ const ProfileScreen = () => {
     React.useCallback(() => {
       const fetchUserFromServer = async () => {
         try {
+          // Сначала обновляем данные пользователя в контексте темы
+          await updateUser();
+          
           const token = await AsyncStorage.getItem("token");
           if (!token) {
             navigation.replace("Login");
@@ -72,7 +75,7 @@ const ProfileScreen = () => {
       };
 
       fetchUserFromServer();
-    }, [navigation])
+    }, [navigation, updateUser])
   );
 
   const menuItems = [

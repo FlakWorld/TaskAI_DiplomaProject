@@ -271,7 +271,7 @@ const MenuModalWithAI = ({ isMenuVisible, setMenuVisible, navigation, handleLogo
 };
 
 export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
-  const { theme } = useTheme();
+  const { theme, updateUser } = useTheme();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -707,6 +707,9 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   );
 
   const loadData = useCallback(async () => {
+    // Обновляем пользователя и тему
+    await updateUser();
+    
     const storedToken = await AsyncStorage.getItem("token");
     if (!storedToken) {
       navigation.replace("Login");
@@ -714,15 +717,20 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     }
     setToken(storedToken);
     await loadTasks(storedToken);
-  }, [loadTasks, navigation]);
+  }, [loadTasks, navigation, updateUser]);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
-      if (token) loadTasks(token);
+    const unsubscribe = navigation.addListener("focus", async () => {
+      // Обновляем пользователя и тему при фокусе на экране
+      await updateUser();
+      
+      if (token) {
+        loadTasks(token);
+      }
     });
 
     return unsubscribe;
-  }, [navigation, token, loadTasks]);
+  }, [navigation, token, loadTasks, updateUser]);
 
   useEffect(() => {
     loadData();

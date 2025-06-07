@@ -6,17 +6,37 @@ import { register } from "../server/api";
 import { LinearGradient } from 'react-native-linear-gradient';
 import Ionicons from "react-native-vector-icons/Ionicons";
 
+// Импортируем автоматическую тему
+import { useAutoTheme } from './useAutoTheme';
+import { getTimeIcon, getTimeText } from './authThemeStyles';
+
 const { width, height } = Dimensions.get('window');
 
 type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+  // Используем автоматическую тему
+  const { theme, isDayTime, isAutoMode } = useAutoTheme();
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [surname, setSurname] = useState("");
   const [secureEntry, setSecureEntry] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  // Функция для получения градиента в зависимости от времени и темы
+  const getBackgroundGradient = () => {
+    if (theme.isDark) {
+      return isDayTime 
+        ? ['#1E3A8A', '#3B82F6', '#60A5FA'] // Дневные синие тона для темной темы
+        : ['#0F172A', '#1E293B', '#334155']; // Ночные серые тона
+    } else {
+      return isDayTime 
+        ? ['#8BC34A', '#6B6F45', '#4A5D23'] // Ваш оригинальный дневной градиент
+        : ['#3F51B5', '#5C6BC0', '#7986CB']; // Ночные фиолетовые тона
+    }
+  };
 
   const handleRegister = async () => {
     if (!email || !password || !name || !surname) {
@@ -42,7 +62,6 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       if (res.error) {
         Alert.alert("Ошибка", res.error);
       } else if (res.emailSent) {
-        // Успешная регистрация - перенаправляем на экран подтверждения
         Alert.alert(
           "Регистрация успешна!", 
           res.message,
@@ -61,9 +80,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  // Создаем стили с поддержкой автоматической темы
+  const styles = createThemedStyles(theme, isDayTime);
+
   return (
     <LinearGradient
-      colors={['#8BC34A', '#6B6F45', '#4A5D23']}
+      colors={getBackgroundGradient()}
       style={styles.container}
       start={{x: 0, y: 0}}
       end={{x: 1, y: 1}}
@@ -73,6 +95,18 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardView}
         >
+          {/* Индикатор автоматической темы */}
+          {isAutoMode && (
+            <View style={styles.timeIndicator}>
+              <Text style={styles.timeIndicatorIcon}>
+                {getTimeIcon(isDayTime)}
+              </Text>
+              <Text style={styles.timeIndicatorText}>
+                Авто • {getTimeText(isDayTime)}
+              </Text>
+            </View>
+          )}
+
           {/* Декоративные элементы */}
           <View style={styles.decorativeCircle1} />
           <View style={styles.decorativeCircle2} />
@@ -80,7 +114,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           
           <View style={styles.content}>
             <View style={styles.titleContainer}>
-              <Text style={styles.title}>Добро пожаловать!</Text>
+              <Text style={styles.title}>
+                {isDayTime ? 'Добро пожаловать!' : 'Присоединяйтесь к нам!'}
+              </Text>
               <Text style={styles.subtitle}>Создайте свой аккаунт</Text>
               <View style={styles.titleUnderline} />
             </View>
@@ -90,11 +126,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={[styles.inputContainer, { marginRight: 10 }]}>
                   <Text style={styles.label}>Имя</Text>
                   <View style={styles.inputWrapper}>
-                    <Ionicons name="person-outline" size={20} color="#6B6F45" style={styles.inputIcon} />
+                    <Ionicons name="person-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="Ваше имя"
-                      placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                      placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                       value={name}
                       onChangeText={setName}
                       autoCapitalize="words"
@@ -106,11 +142,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={[styles.inputContainer, { marginLeft: 10 }]}>
                   <Text style={styles.label}>Фамилия</Text>
                   <View style={styles.inputWrapper}>
-                    <Ionicons name="person-outline" size={20} color="#6B6F45" style={styles.inputIcon} />
+                    <Ionicons name="person-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="Ваша фамилия"
-                      placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                      placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                       value={surname}
                       onChangeText={setSurname}
                       autoCapitalize="words"
@@ -123,11 +159,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email</Text>
                 <View style={styles.inputWrapper}>
-                  <Ionicons name="mail-outline" size={20} color="#6B6F45" style={styles.inputIcon} />
+                  <Ionicons name="mail-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="example@email.com"
-                    placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                    placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -140,11 +176,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Пароль</Text>
                 <View style={styles.inputWrapper}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#6B6F45" style={styles.inputIcon} />
+                  <Ionicons name="lock-closed-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
                     placeholder="Минимум 6 символов"
-                    placeholderTextColor="rgba(107, 111, 69, 0.6)"
+                    placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                     secureTextEntry={secureEntry}
                     value={password}
                     onChangeText={setPassword}
@@ -158,7 +194,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                     <Ionicons 
                       name={secureEntry ? "eye-off" : "eye"} 
                       size={20} 
-                      color="#6B6F45" 
+                      color={theme.colors.primary}
                     />
                   </TouchableOpacity>
                 </View>
@@ -170,7 +206,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 disabled={loading}
               >
                 <LinearGradient
-                  colors={['#FFF', '#F8F8F8']}
+                  colors={theme.isDark ? [theme.colors.surface, theme.colors.card] : ['#FFF', '#F8F8F8']}
                   style={styles.buttonGradient}
                   start={{x: 0, y: 0}}
                   end={{x: 0, y: 1}}
@@ -209,6 +245,17 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                     <Text style={styles.featureText}>Умные напоминания</Text>
                   </View>
+
+                  <View style={styles.featureItem}>
+                    <View style={styles.featureIcon}>
+                      <Text style={styles.featureIconText}>
+                        {isDayTime ? '☀️' : '🌙'}
+                      </Text>
+                    </View>
+                    <Text style={styles.featureText}>
+                      Автоматическая {isDayTime ? 'дневная' : 'ночная'} тема
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -229,7 +276,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+// Создаем стили с поддержкой темы
+const createThemedStyles = (theme: any, isDayTime: boolean) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -238,6 +286,29 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  timeIndicator: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.isDark ? 
+      'rgba(0, 0, 0, 0.3)' : 
+      'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    zIndex: 10,
+  },
+  timeIndicatorIcon: {
+    fontSize: 16,
+  },
+  timeIndicatorText: {
+    fontSize: 12,
+    color: theme.isDark ? theme.colors.text : '#FFFFFF',
+    fontWeight: '500',
   },
   decorativeCircle1: {
     position: 'absolute',
@@ -279,7 +350,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#FFF",
+    color: theme.isDark ? theme.colors.text : "#FFF",
     textAlign: "center",
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -287,7 +358,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: "rgba(255, 255, 255, 0.8)",
+    color: theme.isDark ? theme.colors.textSecondary : "rgba(255, 255, 255, 0.8)",
     textAlign: "center",
     marginTop: 8,
     fontWeight: '300',
@@ -295,12 +366,14 @@ const styles = StyleSheet.create({
   titleUnderline: {
     width: 60,
     height: 3,
-    backgroundColor: '#FFF',
+    backgroundColor: theme.isDark ? theme.colors.primary : '#FFF',
     marginTop: 12,
     borderRadius: 2,
   },
   formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.surface}95` : 
+      'rgba(255, 255, 255, 0.95)',
     borderRadius: 25,
     padding: 25,
     shadowColor: '#000',
@@ -318,7 +391,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    color: "#6B6F45",
+    color: theme.colors.primary,
     marginBottom: 8,
     fontSize: 14,
     fontWeight: "600",
@@ -326,10 +399,12 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: theme.isDark ? theme.colors.card : '#F8F9FA',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: 'rgba(107, 111, 69, 0.2)',
+    borderColor: theme.isDark ? 
+      `${theme.colors.primary}30` : 
+      'rgba(107, 111, 69, 0.2)',
   },
   inputIcon: {
     marginLeft: 15,
@@ -340,7 +415,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingRight: 15,
     fontSize: 16,
-    color: "#333",
+    color: theme.colors.text,
   },
   eyeIcon: {
     padding: 15,
@@ -349,7 +424,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginTop: 10,
     overflow: 'hidden',
-    shadowColor: '#6B6F45',
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -367,14 +442,14 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#6B6F45",
+    color: theme.colors.primary,
     marginRight: 8,
   },
   buttonIcon: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#6B6F45',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -385,7 +460,7 @@ const styles = StyleSheet.create({
   featuresTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B6F45',
+    color: theme.colors.primary,
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -401,7 +476,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(107, 111, 69, 0.1)',
+    backgroundColor: theme.isDark ? 
+      `${theme.colors.primary}20` : 
+      'rgba(107, 111, 69, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -412,7 +489,9 @@ const styles = StyleSheet.create({
   featureText: {
     flex: 1,
     fontSize: 14,
-    color: 'rgba(107, 111, 69, 0.8)',
+    color: theme.isDark ? 
+      theme.colors.textSecondary : 
+      'rgba(107, 111, 69, 0.8)',
     fontWeight: '500',
   },
   loginLink: {
@@ -420,11 +499,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loginText: {
-    color: "rgba(107, 111, 69, 0.8)",
+    color: theme.isDark ? 
+      theme.colors.textSecondary : 
+      "rgba(107, 111, 69, 0.8)",
     fontSize: 14,
   },
   loginHighlight: {
-    color: "#6B6F45",
+    color: theme.colors.primary,
     fontWeight: "bold",
   },
 });

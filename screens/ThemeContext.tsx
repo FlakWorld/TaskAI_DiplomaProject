@@ -69,6 +69,7 @@ interface ThemeContextType {
   isDark: boolean;
   toggleTheme: () => void;
   setTheme: (isDark: boolean) => void;
+  updateUser: () => Promise<void>; // Новая функция для обновления пользователя
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -80,17 +81,33 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [isDark, setIsDark] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Загружаем сохраненную тему при запуске
+  // Загружаем пользователя и его тему при запуске
   useEffect(() => {
-    loadTheme();
+    loadUserAndTheme();
   }, []);
 
-  const loadTheme = async () => {
+  const loadUserAndTheme = async () => {
     try {
-      const savedTheme = await AsyncStorage.getItem('app_theme');
-      if (savedTheme !== null) {
-        setIsDark(savedTheme === 'dark');
+      // Сначала получаем данные пользователя
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        const userIdentifier = user.email || user._id || 'default';
+        setUserId(userIdentifier);
+        
+        // Загружаем тему для конкретного пользователя
+        const savedTheme = await AsyncStorage.getItem(`app_theme_${userIdentifier}`);
+        if (savedTheme !== null) {
+          setIsDark(savedTheme === 'dark');
+        }
+      } else {
+        // Если пользователь не найден, загружаем дефолтную тему
+        const savedTheme = await AsyncStorage.getItem('app_theme_default');
+        if (savedTheme !== null) {
+          setIsDark(savedTheme === 'dark');
+        }
       }
     } catch (error) {
       console.error('Ошибка загрузки темы:', error);
@@ -99,7 +116,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   const saveTheme = async (darkMode: boolean) => {
     try {
-      await AsyncStorage.setItem('app_theme', darkMode ? 'dark' : 'light');
+      const userIdentifier = userId || 'default';
+      await AsyncStorage.setItem(`app_theme_${userIdentifier}`, darkMode ? 'dark' : 'light');
     } catch (error) {
       console.error('Ошибка сохранения темы:', error);
     }
@@ -116,10 +134,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     saveTheme(darkMode);
   };
 
+  const updateUser = async () => {
+    await loadUserAndTheme();
+  };
+
   const theme = isDark ? darkTheme : lightTheme;
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, isDark, toggleTheme, setTheme, updateUser }}>
       {children}
     </ThemeContext.Provider>
   );

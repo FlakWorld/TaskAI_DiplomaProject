@@ -23,6 +23,7 @@ import { Image } from 'react-native';
 import DinoImage from '../assets/dino.jpg';
 import { useTheme } from './ThemeContext';
 import { useLocalization } from './LocalizationContext';
+import { Languages } from '../services/translations';
 
 const { width } = Dimensions.get('window');
 
@@ -45,7 +46,7 @@ interface ChatMessage {
 
 const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
   const { theme } = useTheme();
-  const { t } = useLocalization();
+  const { t, language: currentLanguage } = useLocalization();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -222,13 +223,16 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
       setIsLoadingHistory(true);
       await chatService.initialize();
       
+      // Устанавливаем язык в сервис
+      chatService.setLanguage(currentLanguage as Languages);
+      
       // Загружаем данные пользователя
       const userData = await AsyncStorage.getItem("user");
       let userId = null;
       
       if (userData) {
         const user = JSON.parse(userData);
-        setUserName(user.name || 'Пользователь');
+        setUserName(user.name || t('profile.name'));
         // Используем стабильный идентификатор пользователя
         userId = user.id || user._id || user.email;
       }
@@ -270,7 +274,12 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
     };
 
     initializeChat();
-  }, [fadeAnim, chatService, loadTasks, loadChatHistory, t, userName]);
+  }, [fadeAnim, chatService, loadTasks, loadChatHistory, t, userName, currentLanguage]);
+
+  // Обновляем язык в ChatGPT сервисе при изменении языка приложения
+  useEffect(() => {
+    chatService.setLanguage(currentLanguage as Languages);
+  }, [currentLanguage, chatService]);
 
   // Обновляем задачи при фокусе на экране
   useEffect(() => {
@@ -348,6 +357,7 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
           tasks,
           userName,
           currentDate: new Date().toLocaleDateString('ru-RU'),
+          language: currentLanguage as Languages,
         },
       });
 
@@ -476,32 +486,32 @@ const AIChatScreen: React.FC<ScreenProps<'AIChat'>> = ({ navigation }) => {
 
   const quickActions = [
     { 
-      title: t('chat.actions.howAreThings'), 
+      title: t('chat.quickActionButtons.howAreThings'), 
       icon: 'checkmark-circle-outline', 
-      action: () => sendQuickMessage(t('chat.actions.howAreThings'))
+      action: () => sendQuickMessage(t('chat.quickActionButtons.howAreThings'))
     },
     { 
-      title: t('chat.actions.productivity'), 
+      title: t('chat.quickActionButtons.productivity'), 
       icon: 'analytics-outline', 
       action: () => handleAnalysisAction('productivity') 
     },
     { 
-      title: t('chat.actions.dailyPlan'), 
+      title: t('chat.quickActionButtons.dailyPlan'), 
       icon: 'calendar-outline', 
       action: () => handleAnalysisAction('daily_plan') 
     },
     { 
-      title: t('chat.actions.motivation'), 
+      title: t('chat.quickActionButtons.motivation'), 
       icon: 'flash-outline', 
       action: () => handleAnalysisAction('motivation') 
     },
     { 
-      title: t('chat.actions.patterns'), 
+      title: t('chat.quickActionButtons.patterns'), 
       icon: 'trending-up-outline', 
       action: () => handleAnalysisAction('patterns') 
     },
     { 
-      title: t('chat.actions.weeklyReport'), 
+      title: t('chat.quickActionButtons.weeklyReport'), 
       icon: 'bar-chart-outline', 
       action: () => handleAnalysisAction('weekly') 
     },

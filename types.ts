@@ -82,19 +82,21 @@ export interface CategoryKeywords {
 }
 
 // =============================================================================
-// КАТЕГОРИИ ЗАДАЧ (обновленные для ИИ)
+// КАТЕГОРИИ ЗАДАЧ (обновленные для поддержки переводов)
 // =============================================================================
 
 export type TaskCategory = {
-  name: string;
+  key: string; // Ключ для переводов
+  name: string; // Резервное название (для совместимости)
   icon: string;
   color: string;
   keywords?: CategoryKeywords; // Добавляем ключевые слова для ИИ
 };
 
-// Предустановленные категории (обновленные для совместимости с ИИ)
+// Предустановленные категории (обновленные для поддержки переводов)
 export const TASK_CATEGORIES: TaskCategory[] = [
   { 
+    key: "work",
     name: "Работа", 
     icon: "briefcase-outline", 
     color: "#2196F3",
@@ -105,6 +107,7 @@ export const TASK_CATEGORIES: TaskCategory[] = [
     }
   },
   { 
+    key: "study",
     name: "Учеба", 
     icon: "school-outline", 
     color: "#9C27B0",
@@ -115,6 +118,7 @@ export const TASK_CATEGORIES: TaskCategory[] = [
     }
   },
   { 
+    key: "home",
     name: "Дом", 
     icon: "home-outline", 
     color: "#FF9800",
@@ -125,6 +129,7 @@ export const TASK_CATEGORIES: TaskCategory[] = [
     }
   },
   { 
+    key: "health",
     name: "Здоровье", 
     icon: "fitness-outline", 
     color: "#4CAF50",
@@ -135,6 +140,7 @@ export const TASK_CATEGORIES: TaskCategory[] = [
     }
   },
   { 
+    key: "finance",
     name: "Финансы", 
     icon: "card-outline", 
     color: "#F44336",
@@ -145,6 +151,7 @@ export const TASK_CATEGORIES: TaskCategory[] = [
     }
   },
   { 
+    key: "personal",
     name: "Личное", 
     icon: "heart-outline", 
     color: "#E91E63",
@@ -152,6 +159,73 @@ export const TASK_CATEGORIES: TaskCategory[] = [
       ru: ['встреча', 'друзья', 'семья', 'хобби', 'отдых', 'путешествие', 'день рождения'],
       en: ['meeting', 'friends', 'family', 'hobby', 'rest', 'travel', 'birthday'],
       kz: ['кездесу', 'достар', 'отбасы', 'хобби', 'демалыс', 'саяхат']
+    }
+  },
+  // Дополнительные категории для более полного покрытия
+  { 
+    key: "family",
+    name: "Семья", 
+    icon: "people-outline", 
+    color: "#FF5722",
+    keywords: {
+      ru: ['семья', 'дети', 'родители', 'родственники', 'семейное'],
+      en: ['family', 'children', 'parents', 'relatives', 'family time'],
+      kz: ['отбасы', 'балалар', 'ата-ана', 'туыстар']
+    }
+  },
+  { 
+    key: "sport",
+    name: "Спорт", 
+    icon: "barbell-outline", 
+    color: "#4CAF50",
+    keywords: {
+      ru: ['спорт', 'тренировка', 'фитнес', 'зал', 'бег', 'йога', 'плавание'],
+      en: ['sport', 'workout', 'fitness', 'gym', 'running', 'yoga', 'swimming'],
+      kz: ['спорт', 'жаттығу', 'фитнес', 'зал', 'жүгіру', 'йога']
+    }
+  },
+  { 
+    key: "creative",
+    name: "Творчество", 
+    icon: "brush-outline", 
+    color: "#FF9800",
+    keywords: {
+      ru: ['творчество', 'рисование', 'музыка', 'писать', 'дизайн', 'искусство'],
+      en: ['creative', 'drawing', 'music', 'writing', 'design', 'art'],
+      kz: ['шығармашылық', 'сурет салу', 'музыка', 'жазу', 'дизайн']
+    }
+  },
+  { 
+    key: "travel",
+    name: "Путешествия", 
+    icon: "airplane-outline", 
+    color: "#00BCD4",
+    keywords: {
+      ru: ['путешествие', 'поездка', 'отпуск', 'туризм', 'билеты', 'отель'],
+      en: ['travel', 'trip', 'vacation', 'tourism', 'tickets', 'hotel'],
+      kz: ['саяхат', 'демалыс', 'туризм', 'билеттер', 'қонақ үй']
+    }
+  },
+  { 
+    key: "shopping",
+    name: "Покупки", 
+    icon: "bag-outline", 
+    color: "#795548",
+    keywords: {
+      ru: ['покупки', 'магазин', 'купить', 'заказать', 'товары', 'список'],
+      en: ['shopping', 'store', 'buy', 'order', 'goods', 'list'],
+      kz: ['сатып алу', 'дүкен', 'тауарлар', 'тізім', 'тапсырыс']
+    }
+  },
+  { 
+    key: "other",
+    name: "Другое", 
+    icon: "ellipsis-horizontal-outline", 
+    color: "#607D8B",
+    keywords: {
+      ru: ['другое', 'разное', 'прочее', 'общее'],
+      en: ['other', 'misc', 'various', 'general'],
+      kz: ['басқа', 'түрлі', 'жалпы']
     }
   }
 ];
@@ -286,6 +360,29 @@ export interface AIInsight {
   relatedTasks?: string[];
   language: SupportedLanguage;
 }
+
+// =============================================================================
+// УТИЛИТЫ ДЛЯ РАБОТЫ С КАТЕГОРИЯМИ
+// =============================================================================
+
+// Функции-утилиты для работы с категориями (можно перенести в отдельный файл)
+export const getCategoryByKey = (key: string): TaskCategory | undefined => {
+  return TASK_CATEGORIES.find(category => category.key === key);
+};
+
+export const getCategoryByName = (name: string): TaskCategory | undefined => {
+  return TASK_CATEGORIES.find(category => category.name === name);
+};
+
+export const getCategoryKey = (nameOrKey: string): string => {
+  // Сначала ищем по ключу
+  const byKey = TASK_CATEGORIES.find(c => c.key === nameOrKey);
+  if (byKey) return nameOrKey;
+  
+  // Потом по имени (для обратной совместимости)
+  const byName = TASK_CATEGORIES.find(c => c.name === nameOrKey);
+  return byName?.key || nameOrKey;
+};
 
 // =============================================================================
 // ЭКСПОРТ ЗАВЕРШЕН - все типы уже экспортированы выше

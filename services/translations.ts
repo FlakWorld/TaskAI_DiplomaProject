@@ -31,6 +31,22 @@ export const translations = {
       ok: 'OK',
       understand: 'Понятно',
     },
+
+    // Категории задач
+    categories: {
+      work: 'Работа',
+      study: 'Учеба',
+      home: 'Дом',
+      health: 'Здоровье',
+      finance: 'Финансы',
+      personal: 'Личное',
+      family: 'Семья',
+      sport: 'Спорт',
+      creative: 'Творчество',
+      travel: 'Путешествия',
+      shopping: 'Покупки',
+      other: 'Другое',
+    },
     
     // Профиль
     profile: {
@@ -136,7 +152,9 @@ export const translations = {
       apiKeyRequired: 'Настройка требуется',
       apiKeyRequiredDesc: 'Для работы AI помощника необходимо настроить API ключ OpenAI. Обратитесь к разработчику.',
       understand: 'Понятно',
-      actions: {
+      
+      // Новые переводы для быстрых действий
+      quickActionButtons: {
         howAreThings: 'Как дела с задачами?',
         productivity: 'Анализ продуктивности', 
         dailyPlan: 'Спланируй день',
@@ -144,6 +162,15 @@ export const translations = {
         patterns: 'Мои паттерны',
         weeklyReport: 'Недельный отчет',
       },
+      
+      // Системные сообщения для AI
+      systemMessages: {
+        language: 'ru',
+        instruction: 'Отвечай на русском языке. Ты помощник по задачам.',
+        analysisRequest: 'Проанализируй мои задачи',
+        motivationRequest: 'Дай мне мотивацию',
+        planningRequest: 'Помоги спланировать день',
+      }
     },
     
     // Задачи
@@ -255,7 +282,7 @@ export const translations = {
       save: 'Сақтау',
       cancel: 'Болдырмау',
       delete: 'Жою',
-      edit: 'Өңдеу',
+      edit: 'Өзгерту',
       back: 'Артқа',
       close: 'Жабу',
       yes: 'Иә',
@@ -278,11 +305,27 @@ export const translations = {
       ok: 'Жарайды',
       understand: 'Түсінікті',
     },
+
+    // Тапсырма санаттары
+    categories: {
+      work: 'Жұмыс',
+      study: 'Оқу',
+      home: 'Үй',
+      health: 'Денсаулық',
+      finance: 'Қаржы',
+      personal: 'Жеке',
+      family: 'Отбасы',
+      sport: 'Спорт',
+      creative: 'Шығармашылық',
+      travel: 'Саяхат',
+      shopping: 'Сатып алу',
+      other: 'Басқа',
+    },
     
     // Профиль
     profile: {
       title: 'Профиль',
-      editProfile: 'Профильді өңдеу',
+      editProfile: 'Профильді өзгерту',
       name: 'Аты:',
       surname: 'Тегі:',
       email: 'Пошта:',
@@ -290,7 +333,7 @@ export const translations = {
       favorites: 'Таңдаулылар',
       languages: 'Тілдер',
       darkTheme: 'Қараңғы тема',
-      lightTheme: 'Ашық тема',
+      lightTheme: 'Жарық тема',
       language: 'Тіл',
       selectLanguage: 'Тілді таңдаңыз',
       russian: 'Русский',
@@ -325,7 +368,7 @@ export const translations = {
       basedOnAnalysis: 'Талдау негізінде',
       recommendation: 'AI ұсынысы',
       model: 'Модель',
-      processing: 'Өңдеу',
+      processing: 'Өзгерту',
       locally: 'жергілікті',
       additionalCategories: 'Қосымша санаттар',
       aiSuggested: 'AI ұсынды',
@@ -365,8 +408,7 @@ export const translations = {
         reject: 'Қабылдамау',
       },
     },
-    
-    // AI Чат
+
     chat: {
       title: 'AI Көмекшісі',
       aiThinking: 'AI ойлануда...',
@@ -383,14 +425,23 @@ export const translations = {
       apiKeyRequired: 'Баптау қажет',
       apiKeyRequiredDesc: 'AI көмекшісінің жұмысы үшін OpenAI API кілті баптау қажет. Жасаушыға хабарласыңыз.',
       understand: 'Түсінікті',
-      actions: {
-        howAreThings: 'Тапсырмалармен қалай жағдай?',
+      
+      quickActionButtons: {
+        howAreThings: 'Тапсырмалармен жағдай қандай?',
         productivity: 'Өнімділікті талдау',
         dailyPlan: 'Күнді жоспарла',
         motivation: 'Мотивация бер!',
         patterns: 'Менің үлгілерім',
         weeklyReport: 'Апталық есеп',
       },
+      
+      systemMessages: {
+        language: 'kk',
+        instruction: 'Қазақ тілінде жауап бер. Сен тапсырмалар бойынша көмекші боласың.',
+        analysisRequest: 'Менің тапсырмаларымды талда',
+        motivationRequest: 'Маған мотивация бер',
+        planningRequest: 'Күнді жоспарлауға көмектес',
+      }
     },
     
     // Тапсырмалар
@@ -443,8 +494,8 @@ export const translations = {
       inProcess: 'Процесте',
       finished: 'Орындалды',
       
-      // Өңдеу
-      editing: 'Өңдеу',
+      // Өзгерту
+      editing: 'Өзгерту',
       updateDetails: 'Тапсырма мәліметтерін жаңартыңыз',
       saveChanges: 'Өзгерістерді сақтау',
       saving: 'Сақталуда...',
@@ -461,7 +512,7 @@ export const translations = {
       charCounter: '{current}/{max}',
       dateNotSpecified: 'Күні көрсетілмеген',
       timeNotSpecified: 'Уақыты көрсетілмеген',
-      editTip: 'Тапсырма мәліметтерін өзгерту үшін "Өңдеу" түймесін басыңыз',
+      editTip: 'Тапсырма мәліметтерін өзгерту үшін "Өзгерту" түймесін басыңыз',
     },
     
     // Статистика
@@ -524,6 +575,22 @@ export const translations = {
       confirmation: 'Confirmation',
       ok: 'OK',
       understand: 'Understood',
+    },
+
+    // Task Categories
+    categories: {
+      work: 'Work',
+      study: 'Study',
+      home: 'Home',
+      health: 'Health',
+      finance: 'Finance',
+      personal: 'Personal',
+      family: 'Family',
+      sport: 'Sport',
+      creative: 'Creative',
+      travel: 'Travel',
+      shopping: 'Shopping',
+      other: 'Other',
     },
     
     // Profile
@@ -630,7 +697,8 @@ export const translations = {
       apiKeyRequired: 'Setup Required',
       apiKeyRequiredDesc: 'AI assistant requires OpenAI API key configuration. Please contact the developer.',
       understand: 'Understood',
-      actions: {
+      
+      quickActionButtons: {
         howAreThings: 'How are things with tasks?',
         productivity: 'Productivity Analysis',
         dailyPlan: 'Plan the Day',
@@ -638,6 +706,14 @@ export const translations = {
         patterns: 'My Patterns',
         weeklyReport: 'Weekly Report',
       },
+      
+      systemMessages: {
+        language: 'en',
+        instruction: 'Respond in English. You are a task management assistant.',
+        analysisRequest: 'Analyze my tasks',
+        motivationRequest: 'Give me motivation',
+        planningRequest: 'Help me plan my day',
+      }
     },
     
     // Tasks

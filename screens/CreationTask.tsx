@@ -25,6 +25,33 @@ import { useLocalization } from "./LocalizationContext";
 
 const { width, height } = Dimensions.get('window');
 
+// Утилиты для работы с категориями
+const getCategoryTranslation = (categoryKey: string, t: any): string => {
+  // Проверяем есть ли ключ в переводах
+  const translated = t(`categories.${categoryKey}`);
+  if (translated !== `categories.${categoryKey}`) {
+    return translated;
+  }
+  
+  // Если нет перевода, возвращаем название из TASK_CATEGORIES
+  const category = TASK_CATEGORIES.find(c => c.key === categoryKey);
+  return category?.name || categoryKey;
+};
+
+const getCategoryKey = (categoryName: string): string => {
+  // Сначала проверяем, не является ли это уже ключом
+  const existingKey = TASK_CATEGORIES.find(c => c.key === categoryName);
+  if (existingKey) return categoryName;
+  
+  // Ищем по названию (для обратной совместимости)
+  const category = TASK_CATEGORIES.find(c => c.name === categoryName);
+  return category?.key || categoryName;
+};
+
+const getCategoryByKey = (key: string) => {
+  return TASK_CATEGORIES.find(c => c.key === key);
+};
+
 // Интерфейс для анализа ИИ
 interface TaskAnalysis {
   sentiment: {
@@ -134,11 +161,11 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
     return `${hours}:${minutes}`;
   };
 
-  const toggleTag = (tag: string) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter(t => t !== tag));
+  const toggleTag = (categoryKey: string) => {
+    if (selectedTags.includes(categoryKey)) {
+      setSelectedTags(selectedTags.filter(t => t !== categoryKey));
     } else {
-      setSelectedTags([...selectedTags, tag]);
+      setSelectedTags([...selectedTags, categoryKey]);
     }
   };
 
@@ -166,7 +193,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
         date: formatDate(date),
         time: formatTime(time),
         status: t('tasks.inProgress'),
-        tags: selectedTags,
+        tags: selectedTags, // Сохраняем ключи категорий
         // Добавляем результаты анализа ИИ
         analysis: finalAnalysis
       };
@@ -309,6 +336,19 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       case 'low': return t('common.low');
       default: return t('common.medium');
     }
+  };
+
+  // Функция для определения категории, предлагаемой ИИ
+  const getAISuggestedCategoryKey = () => {
+    if (!taskAnalysis) return null;
+    
+    // Сначала пытаемся найти категорию по ключу
+    const categoryByKey = TASK_CATEGORIES.find(c => c.key === taskAnalysis.category);
+    if (categoryByKey) return categoryByKey.key;
+    
+    // Потом пытаемся найти по названию (для совместимости)
+    const categoryByName = TASK_CATEGORIES.find(c => c.name === taskAnalysis.category);
+    return categoryByName?.key || null;
   };
 
   return (
@@ -459,7 +499,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                 </Animated.View>
               )}
 
-              {/* Categories Section */}
+              {/* Categories Section с переводами */}
               <View style={styles.categoriesSection}>
                 <Text style={styles.sectionTitle}>
                   {t('ai.additionalCategories')}
@@ -469,30 +509,33 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
                 </Text>
                 <View style={styles.tagsGrid}>
                   {TASK_CATEGORIES.map((category) => {
-                    const isAISuggested = taskAnalysis && taskAnalysis.category === category.name;
+                    const aiSuggestedKey = getAISuggestedCategoryKey();
+                    const isAISuggested = aiSuggestedKey === category.key;
+                    const isSelected = selectedTags.includes(category.key);
+                    
                     return (
                       <TouchableOpacity
-                        key={category.name}
+                        key={category.key}
                         style={[
                           styles.tagItem,
-                          selectedTags.includes(category.name) && {
+                          isSelected && {
                             backgroundColor: category.color + '20',
                             borderColor: category.color,
                           },
                           isAISuggested && styles.aiSuggestedTag
                         ]}
-                        onPress={() => toggleTag(category.name)}
+                        onPress={() => toggleTag(category.key)}
                       >
                         <Ionicons 
                           name={category.icon as any} 
                           size={16} 
-                          color={selectedTags.includes(category.name) ? category.color : theme.colors.primary} 
+                          color={isSelected ? category.color : theme.colors.primary} 
                         />
                         <Text style={[
                           styles.tagText,
-                          selectedTags.includes(category.name) && { color: category.color }
+                          isSelected && { color: category.color }
                         ]}>
-                          {category.name}
+                          {getCategoryTranslation(category.key, t)}
                         </Text>
                         {isAISuggested && (
                           <View style={styles.aiSuggestedBadge}>

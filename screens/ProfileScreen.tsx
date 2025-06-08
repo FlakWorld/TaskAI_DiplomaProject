@@ -127,25 +127,6 @@ const ProfileScreen = () => {
     }, [navigation, updateUser, t])
   );
 
-  const menuItems = [
-    { 
-      label: t('profile.notifications'), 
-      icon: "bell", 
-      iconType: "feather",
-      onPress: () => handleMenuPress(t('profile.notifications'))
-    },
-    { 
-      label: t('profile.favorites'), 
-      icon: "heart", 
-      iconType: "feather",
-      onPress: () => handleMenuPress(t('profile.favorites'))
-    },
-  ];
-
-  const handleMenuPress = (label: string) => {
-    Alert.alert(label, `${t('common.loading')} "${label}"`);
-  };
-
   // Обработчик смены языка с проверкой авторизации
   const handleLanguageSelect = async (selectedLanguage: any) => {
     // Используем исправленную логику получения пользователя
@@ -333,23 +314,6 @@ const ProfileScreen = () => {
             </Text>
           </View>
         )}
-
-        {/* Остальные пункты меню */}
-        {menuItems.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.menuItem}
-            onPress={item.onPress}
-          >
-            <Icon
-              name={item.icon}
-              size={20}
-              color={theme.colors.primary}
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuText}>{item.label}</Text>
-          </TouchableOpacity>
-        ))}
       </View>
 
       {/* Модальное окно выбора языка с улучшенным дизайном */}
@@ -611,14 +575,6 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontSize: 12,
     color: theme.colors.warning,
     fontWeight: '500',
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
   },
   menuIcon: {
     marginRight: 10,

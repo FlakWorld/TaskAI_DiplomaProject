@@ -13,14 +13,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Настройка nodemailer для mail.ru
+
 const transporter = nodemailer.createTransport({
   host: 'smtp.mail.ru',
   port: 465,
   secure: true,
   auth: {
-    user: process.env.EMAIL_USER, // your-email@mail.ru
-    pass: process.env.EMAIL_PASS  // пароль приложения из настроек mail.ru
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS  
   }
 });
 

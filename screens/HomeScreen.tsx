@@ -53,6 +53,39 @@ type Task = {
   };
 };
 
+// Утилиты для работы с категориями
+const getCategoryTranslation = (categoryKey: string, t: any): string => {
+  // Проверяем есть ли ключ в переводах
+  const translated = t(`categories.${categoryKey}`);
+  if (translated !== `categories.${categoryKey}`) {
+    return translated;
+  }
+  
+  // Если нет перевода, возвращаем название из TASK_CATEGORIES
+  const category = TASK_CATEGORIES.find(c => c.key === categoryKey);
+  return category?.name || categoryKey;
+};
+
+const getCategoryKey = (categoryName: string): string => {
+  // Сначала проверяем, не является ли это уже ключом
+  const existingKey = TASK_CATEGORIES.find(c => c.key === categoryName);
+  if (existingKey) return categoryName;
+  
+  // Ищем по названию (для обратной совместимости)
+  const category = TASK_CATEGORIES.find(c => c.name === categoryName);
+  return category?.key || categoryName;
+};
+
+const getCategoryByTag = (tag: string) => {
+  // Сначала ищем по ключу
+  let category = TASK_CATEGORIES.find(c => c.key === tag);
+  if (category) return category;
+  
+  // Потом по названию (для обратной совместимости)
+  category = TASK_CATEGORIES.find(c => c.name === tag);
+  return category;
+};
+
 // Обновленная AI Assistant Card с аналитикой и поддержкой тем
 const AIAssistantCard: React.FC<{ navigation: any, tasks: Task[], aiStats: any, theme: any, t: any }> = ({ 
   navigation, 
@@ -767,11 +800,26 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     navigation.replace("Login");
   };
 
-  // Обновленная фильтрация с поддержкой категорий
+  // Обновленная фильтрация с поддержкой ключей категорий
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch = task.title.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = !selectedCategory || 
-      (task.tags && task.tags.includes(selectedCategory));
+    
+    // Если категория не выбрана, показываем все задачи
+    if (!selectedCategory) {
+      return matchesSearch;
+    }
+    
+    // Проверяем есть ли теги у задачи
+    if (!task.tags || task.tags.length === 0) {
+      return false; // Если нет тегов, не показываем при активном фильтре
+    }
+    
+    // Проверяем совпадение как по ключу, так и по названию (для совместимости)
+    const matchesCategory = task.tags && task.tags.some(tag => {
+      const tagKey = getCategoryKey(tag);
+      return tagKey === selectedCategory || tag === selectedCategory;
+    });
+    
     return matchesSearch && matchesCategory;
   });
 
@@ -855,11 +903,13 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                 )}
               </View>
               
-              {/* Отображение тегов */}
+              {/* Обновленное отображение тегов с переводом */}
               {item.tags && item.tags.length > 0 && (
                 <View style={styles.taskTags}>
                   {item.tags.slice(0, 3).map((tag) => {
-                    const category = TASK_CATEGORIES.find(c => c.name === tag);
+                    const category = getCategoryByTag(tag);
+                    const translatedName = getCategoryTranslation(getCategoryKey(tag), t);
+                    
                     return (
                       <View 
                         key={tag} 
@@ -871,7 +921,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                           color={category?.color || theme.colors.primary} 
                         />
                         <Text style={[styles.taskTagText, { color: category?.color || theme.colors.primary }]}>
-                          {tag}
+                          {translatedName}
                         </Text>
                       </View>
                     );
@@ -1013,7 +1063,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         <View style={styles.activeFilterContainer}>
           <View style={styles.activeFilter}>
             <Text style={styles.activeFilterText}>
-              {t('tasks.filter')}: {selectedCategory}
+              {t('tasks.filter')}: {getCategoryTranslation(selectedCategory, t)}
             </Text>
             <TouchableOpacity onPress={() => setSelectedCategory(null)}>
               <Ionicons name="close" size={16} color={theme.isDark ? theme.colors.text : "#FFF"} />
@@ -1146,7 +1196,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* Category Filter Modal */}
+      {/* Обновленный Category Filter Modal с переводами */}
       <Modal
         transparent={true}
         visible={showCategoryFilter}
@@ -1183,23 +1233,23 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               
               {TASK_CATEGORIES.map((category) => (
                 <TouchableOpacity
-                  key={category.name}
-                  style={[styles.categoryOption, selectedCategory === category.name && styles.categoryOptionActive]}
+                  key={category.key}
+                  style={[styles.categoryOption, selectedCategory === category.key && styles.categoryOptionActive]}
                   onPress={() => {
-                    setSelectedCategory(category.name);
+                    setSelectedCategory(category.key);
                     setShowCategoryFilter(false);
                   }}
                 >
                   <Ionicons 
                     name={category.icon as any} 
                     size={20} 
-                    color={selectedCategory === category.name ? theme.colors.success : category.color} 
+                    color={selectedCategory === category.key ? theme.colors.success : category.color} 
                   />
                   <Text style={[
                     styles.categoryOptionText,
-                    selectedCategory === category.name && styles.categoryOptionTextActive
+                    selectedCategory === category.key && styles.categoryOptionTextActive
                   ]}>
-                    {category.name}
+                    {getCategoryTranslation(category.key, t)}
                   </Text>
                 </TouchableOpacity>
               ))}

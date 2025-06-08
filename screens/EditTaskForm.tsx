@@ -22,6 +22,38 @@ import { useLocalization } from "./LocalizationContext";
 
 const { width, height } = Dimensions.get('window');
 
+// Утилиты для работы с категориями
+const getCategoryTranslation = (categoryKey: string, t: any): string => {
+  // Проверяем есть ли ключ в переводах
+  const translated = t(`categories.${categoryKey}`);
+  if (translated !== `categories.${categoryKey}`) {
+    return translated;
+  }
+  
+  // Если нет перевода, возвращаем название из TASK_CATEGORIES
+  const category = TASK_CATEGORIES.find(c => c.key === categoryKey);
+  return category?.name || categoryKey;
+};
+
+const getCategoryKey = (categoryName: string): string => {
+  // Сначала проверяем, не является ли это уже ключом
+  const existingKey = TASK_CATEGORIES.find(c => c.key === categoryName);
+  if (existingKey) return categoryName;
+  
+  // Ищем по названию (для обратной совместимости)
+  const category = TASK_CATEGORIES.find(c => c.name === categoryName);
+  return category?.key || categoryName;
+};
+
+const getCategoryByKey = (key: string) => {
+  return TASK_CATEGORIES.find(c => c.key === key);
+};
+
+// Функция для преобразования тегов в ключи
+const convertTagsToKeys = (tags: string[]): string[] => {
+  return tags.map(tag => getCategoryKey(tag));
+};
+
 export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTaskForm">) {
   const { theme } = useTheme();
   const { t } = useLocalization();
@@ -29,7 +61,10 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
   const [title, setTitle] = useState(task?.title || "");
   const [date, setDate] = useState(parseDate(task?.date));
   const [time, setTime] = useState(parseTime(task?.time));
-  const [selectedTags, setSelectedTags] = useState<string[]>(task?.tags || []);
+  // Преобразуем существующие теги в ключи для совместимости
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    task?.tags ? convertTagsToKeys(task.tags) : []
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -68,11 +103,11 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
     return date;
   }
 
-  const toggleTag = (tag: string) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter(t => t !== tag));
+  const toggleTag = (categoryKey: string) => {
+    if (selectedTags.includes(categoryKey)) {
+      setSelectedTags(selectedTags.filter(t => t !== categoryKey));
     } else {
-      setSelectedTags([...selectedTags, tag]);
+      setSelectedTags([...selectedTags, categoryKey]);
     }
   };
 
@@ -139,7 +174,7 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
         date: formatDateToSend(date),
         time: formatTimeToSend(time),
         status: task?.status || t('tasks.inProgress'),
-        tags: selectedTags,
+        tags: selectedTags, // Сохраняем ключи категорий
       };
 
       console.log('Data being sent:', updatedTask);
@@ -269,35 +304,39 @@ export default function EditTaskForm({ route, navigation }: ScreenProps<"EditTas
                 <Text style={styles.charCounter}>{title.length}/100</Text>
               </View>
 
-              {/* Categories Section */}
+              {/* Categories Section с переводами */}
               <View style={styles.categoriesSection}>
                 <Text style={styles.sectionTitle}>{t('tasks.categories')}</Text>
                 <View style={styles.tagsGrid}>
-                  {TASK_CATEGORIES.map((category) => (
-                    <TouchableOpacity
-                      key={category.name}
-                      style={[
-                        styles.tagItem,
-                        selectedTags.includes(category.name) && {
-                          backgroundColor: category.color + '20',
-                          borderColor: category.color,
-                        }
-                      ]}
-                      onPress={() => toggleTag(category.name)}
-                    >
-                      <Ionicons 
-                        name={category.icon as any} 
-                        size={16} 
-                        color={selectedTags.includes(category.name) ? category.color : theme.colors.primary} 
-                      />
-                      <Text style={[
-                        styles.tagText,
-                        selectedTags.includes(category.name) && { color: category.color }
-                      ]}>
-                        {category.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {TASK_CATEGORIES.map((category) => {
+                    const isSelected = selectedTags.includes(category.key);
+                    
+                    return (
+                      <TouchableOpacity
+                        key={category.key}
+                        style={[
+                          styles.tagItem,
+                          isSelected && {
+                            backgroundColor: category.color + '20',
+                            borderColor: category.color,
+                          }
+                        ]}
+                        onPress={() => toggleTag(category.key)}
+                      >
+                        <Ionicons 
+                          name={category.icon as any} 
+                          size={16} 
+                          color={isSelected ? category.color : theme.colors.primary} 
+                        />
+                        <Text style={[
+                          styles.tagText,
+                          isSelected && { color: category.color }
+                        ]}>
+                          {getCategoryTranslation(category.key, t)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 

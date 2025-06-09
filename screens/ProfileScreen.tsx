@@ -26,7 +26,7 @@ type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList,
 
 const ProfileScreen = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
-  // Исправляем деструктуризацию - убираем user: themeUser
+  // Используем обычную тему как было раньше
   const { theme, isDark, toggleTheme, updateUser } = useTheme();
   const { language, setLanguage, t, availableLanguages } = useLocalization();
   
@@ -127,16 +127,8 @@ const ProfileScreen = () => {
     }, [navigation, updateUser, t])
   );
 
-  // Обработчик смены языка с проверкой авторизации
+  // Обработчик смены языка (доступен всем)
   const handleLanguageSelect = async (selectedLanguage: any) => {
-    // Используем исправленную логику получения пользователя
-    const currentUser = user.email ? user : cachedUser;
-    if (!currentUser || !currentUser.email) {
-      Alert.alert(t('common.error'), t('profile.authRequired'));
-      setLanguageModalVisible(false);
-      return;
-    }
-
     if (selectedLanguage.code === language) {
       setLanguageModalVisible(false);
       return;
@@ -144,9 +136,9 @@ const ProfileScreen = () => {
 
     try {
       setIsLanguageChanging(true);
-      console.log(`🌍 Пользователь ${currentUser.email} меняет язык с ${language} на ${selectedLanguage.code}`);
+      console.log(`🌍 Смена языка с ${language} на ${selectedLanguage.code}`);
       
-      // Меняем язык (автоматически сохраняется для текущего пользователя)
+      // Меняем язык приложения
       await setLanguage(selectedLanguage.code);
       
       setLanguageModalVisible(false);
@@ -234,7 +226,7 @@ const ProfileScreen = () => {
       </View>
 
       <View style={styles.menuContainer}>
-        {/* Переключатель темы */}
+        {/* Переключатель темы - остается как было */}
         <View style={styles.themeContainer}>
           <View style={styles.themeInfo}>
             <MaterialIcons 
@@ -259,61 +251,30 @@ const ProfileScreen = () => {
           />
         </View>
 
-        {/* Переключатель языка с улучшенной индикацией */}
+        {/* Переключатель языка - доступен всем */}
         <TouchableOpacity
-          style={[
-            styles.languageContainer,
-            !isUserAuthorized && styles.languageContainerDisabled
-          ]}
-          onPress={() => {
-            if (!isUserAuthorized) {
-              Alert.alert(t('common.error'), t('profile.authRequired'));
-              return;
-            }
-            setLanguageModalVisible(true);
-          }}
-          disabled={!isUserAuthorized}
+          style={styles.languageContainer}
+          onPress={() => setLanguageModalVisible(true)}
         >
           <View style={styles.languageInfo}>
             <MaterialIcons 
               name="language" 
               size={20} 
-              color={isUserAuthorized ? theme.colors.primary : theme.colors.textSecondary} 
+              color={theme.colors.primary} 
               style={styles.languageIcon} 
             />
             <View style={styles.languageTextContainer}>
-              <Text style={[
-                styles.languageText,
-                !isUserAuthorized && styles.languageTextDisabled
-              ]}>
+              <Text style={styles.languageText}>
                 {t('profile.language')}
               </Text>
-              <Text style={[
-                styles.currentLanguageText,
-                !isUserAuthorized && styles.currentLanguageTextDisabled
-              ]}>
+              <Text style={styles.currentLanguageText}>
                 {getCurrentLanguageName()}
-                {isUserAuthorized && ` • ${currentUser?.email}`}
               </Text>
             </View>
           </View>
           
-          {isUserAuthorized ? (
-            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-          ) : (
-            <Ionicons name="lock-closed" size={16} color={theme.colors.textSecondary} />
-          )}
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
         </TouchableOpacity>
-
-        {/* Предупреждение если пользователь не авторизован */}
-        {!isUserAuthorized && (
-          <View style={styles.authWarningContainer}>
-            <Ionicons name="information-circle" size={16} color={theme.colors.warning} />
-            <Text style={styles.authWarningText}>
-              {t('profile.authRequired')}
-            </Text>
-          </View>
-        )}
       </View>
 
       {/* Модальное окно выбора языка с улучшенным дизайном */}
@@ -334,16 +295,6 @@ const ProfileScreen = () => {
                 <Ionicons name="close" size={24} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
-            
-            {/* Информация о пользователе в модальном окне */}
-            {currentUser && (
-              <View style={styles.modalUserInfo}>
-                <Ionicons name="person-circle" size={16} color={theme.colors.primary} />
-                <Text style={styles.modalUserText}>
-                  {currentUser.name || currentUser.email}
-                </Text>
-              </View>
-            )}
             
             <FlatList
               data={availableLanguages}

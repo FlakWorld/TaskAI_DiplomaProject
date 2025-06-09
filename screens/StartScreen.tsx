@@ -4,9 +4,11 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from 'react-native-linear-gradient';
 
-// Импортируем автоматическую тему
+// Импортируем автоматическую тему и локализацию
 import { useAutoTheme } from './useAutoTheme';
 import { getTimeIcon, getTimeText } from './authThemeStyles';
+import { useLocalization } from './LocalizationContext';
+import LanguageSwitcher from './LanguageSwitcher';
 
 type RootStackParamList = {
     Login: undefined;
@@ -22,8 +24,9 @@ const { width, height } = Dimensions.get('window');
 const StartScreen = () => {
   const navigation = useNavigation<StartScreenNavigationProp>();
   
-  // Используем автоматическую тему
+  // Используем автоматическую тему и локализацию
   const { theme, isDayTime, isAutoMode } = useAutoTheme();
+  const { t } = useLocalization();
   
   const [scaleValue, setScaleValue] = React.useState(new Animated.Value(1));
 
@@ -64,6 +67,13 @@ const StartScreen = () => {
       start={{x: 0, y: 0}}
       end={{x: 1, y: 1}}
     >
+      {/* Кнопка переключения языка */}
+      <LanguageSwitcher 
+        theme={theme} 
+        isDayTime={isDayTime}
+        style={styles.languageSwitcher}
+      />
+
       {/* Индикатор автоматической темы */}
       {isAutoMode && (
         <View style={styles.timeIndicator}>
@@ -71,7 +81,7 @@ const StartScreen = () => {
             {getTimeIcon(isDayTime)}
           </Text>
           <Text style={styles.timeIndicatorText}>
-            Авто • {getTimeText(isDayTime)}
+            {t('autoTheme.auto')} • {getTimeText(isDayTime)}
           </Text>
         </View>
       )}
@@ -83,11 +93,11 @@ const StartScreen = () => {
       
       <View style={styles.content}>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>TaskAI</Text>
+          <Text style={styles.title}>{t('start.title')}</Text>
           <Text style={styles.subtitle}>
             {isDayTime ? 
-              'Умный помощник для ваших задач' : 
-              'Планируйте эффективно даже ночью'
+              t('start.subtitle') : 
+              t('start.subtitleNight')
             }
           </Text>
           <View style={styles.titleUnderline} />
@@ -98,21 +108,21 @@ const StartScreen = () => {
             <View style={styles.featureIcon}>
               <Text style={styles.featureIconText}>🤖</Text>
             </View>
-            <Text style={styles.featureText}>ИИ-предложения</Text>
+            <Text style={styles.featureText}>{t('start.features.ai')}</Text>
           </View>
           
           <View style={styles.featureItem}>
             <View style={styles.featureIcon}>
               <Text style={styles.featureIconText}>⚡</Text>
             </View>
-            <Text style={styles.featureText}>Быстрое создание</Text>
+            <Text style={styles.featureText}>{t('start.features.quick')}</Text>
           </View>
           
           <View style={styles.featureItem}>
             <View style={styles.featureIcon}>
               <Text style={styles.featureIconText}>📊</Text>
             </View>
-            <Text style={styles.featureText}>Статистика</Text>
+            <Text style={styles.featureText}>{t('start.features.stats')}</Text>
           </View>
         </View>
 
@@ -125,8 +135,8 @@ const StartScreen = () => {
           </View>
           <Text style={styles.autoThemeText}>
             {isDayTime ? 
-              'Дневная тема автоматически активна (06:00-18:00)' : 
-              'Ночная тема автоматически активна (18:00-06:00)'
+              t('start.autoTheme.day') : 
+              t('start.autoTheme.night')
             }
           </Text>
         </View>
@@ -145,7 +155,7 @@ const StartScreen = () => {
               start={{x: 0, y: 0}}
               end={{x: 1, y: 1}}
             >
-              <Text style={styles.buttonText}>Начать работу</Text>
+              <Text style={styles.buttonText}>{t('start.getStarted')}</Text>
               <View style={styles.buttonArrow}>
                 <Text style={styles.arrowText}>→</Text>
               </View>
@@ -161,6 +171,12 @@ const StartScreen = () => {
 const createThemedStyles = (theme: any, isDayTime: boolean) => StyleSheet.create({
   container: {
     flex: 1,
+  },
+  languageSwitcher: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
   },
   timeIndicator: {
     position: 'absolute',

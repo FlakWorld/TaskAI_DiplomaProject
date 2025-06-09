@@ -32,6 +32,95 @@ export const translations = {
       understand: 'Понятно',
     },
 
+    // Стартовая страница  
+    start: {
+      title: 'TaskAI',
+      subtitle: 'Умный помощник для ваших задач',
+      subtitleNight: 'Планируйте эффективно даже ночью',
+      getStarted: 'Начать работу',
+      features: {
+        ai: 'ИИ-предложения',
+        quick: 'Быстрое создание',
+        stats: 'Статистика',
+      },
+      autoTheme: {
+        day: 'Дневная тема автоматически активна (06:00-18:00)',
+        night: 'Ночная тема автоматически активна (18:00-06:00)',
+      },
+    },
+
+    // Страница входа
+    login: {
+      title: 'С возвращением!',
+      subtitle: 'Войдите в свой аккаунт',
+      email: 'Email',
+      password: 'Пароль',
+      emailPlaceholder: 'Введите ваш email',
+      passwordPlaceholder: 'Введите ваш пароль',
+      loginButton: 'Войти',
+      orDivider: 'или',
+      microsoftButton: 'Продолжить с Microsoft',
+      googleButton: 'Продолжить с Google',
+      noAccount: 'Нет аккаунта?',
+      signUp: 'Зарегистрироваться',
+      validation: {
+        fillAllFields: 'Пожалуйста, заполните все поля',
+        validEmail: 'Введите корректный email адрес',
+        invalidCredentials: 'Неверный email или пароль',
+      },
+      errors: {
+        googleCancelled: 'Вход через Google был отменён',
+        googleInProgress: 'Авторизация уже выполняется',
+        googlePlayServices: 'Сервисы Google Play недоступны',
+        microsoftCancelled: 'Авторизация была отменена',
+        networkError: 'Произошла ошибка сети',
+        loginFailed: 'Ошибка входа',
+        unknownError: 'Произошла неизвестная ошибка',
+      },
+    },
+
+    // Страница регистрации
+    register: {
+      title: 'Добро пожаловать!',
+      titleNight: 'Присоединяйтесь к нам!',
+      subtitle: 'Создайте свой аккаунт',
+      firstName: 'Имя',
+      lastName: 'Фамилия',
+      email: 'Email',
+      password: 'Пароль',
+      firstNamePlaceholder: 'Ваше имя',
+      lastNamePlaceholder: 'Ваша фамилия',
+      emailPlaceholder: 'example@email.com',
+      passwordPlaceholder: 'Минимум 6 символов',
+      createAccount: 'Создать аккаунт',
+      creatingAccount: 'Создание аккаунта...',
+      whatAwaits: 'Что вас ждет:',
+      features: {
+        aiHelper: 'ИИ-помощник для создания задач',
+        sync: 'Синхронизация между устройствами',
+        reminders: 'Умные напоминания',
+        autoThemeDay: 'Автоматическая дневная тема',
+        autoThemeNight: 'Автоматическая ночная тема',
+      },
+      hasAccount: 'Уже есть аккаунт?',
+      signIn: 'Войти',
+      validation: {
+        fillAllFields: 'Пожалуйста, заполните все поля',
+        passwordLength: 'Пароль должен содержать минимум 6 символов',
+        validEmail: 'Введите корректный email адрес',
+      },
+      success: {
+        title: 'Регистрация успешна!',
+      },
+    },
+
+    // Автоматическая тема
+    autoTheme: {
+      auto: 'Авто',
+      day: 'День',
+      night: 'Ночь',
+    },
+
     // Категории задач
     categories: {
       work: 'Работа',
@@ -153,7 +242,6 @@ export const translations = {
       apiKeyRequiredDesc: 'Для работы AI помощника необходимо настроить API ключ OpenAI. Обратитесь к разработчику.',
       understand: 'Понятно',
       
-      // Новые переводы для быстрых действий
       quickActionButtons: {
         howAreThings: 'Как дела с задачами?',
         productivity: 'Анализ продуктивности', 
@@ -163,7 +251,6 @@ export const translations = {
         weeklyReport: 'Недельный отчет',
       },
       
-      // Системные сообщения для AI
       systemMessages: {
         language: 'ru',
         instruction: 'Отвечай на русском языке. Ты помощник по задачам.',
@@ -216,14 +303,12 @@ export const translations = {
       backToTasks: 'Вернуться к задачам',
       loadingTask: 'Загрузка задачи...',
       
-      // Статусы и действия
       statusTask: 'Статус задачи',
       resume: 'Возобновить',
       complete: 'Завершить',
       inProcess: 'В процессе',
       finished: 'Выполнено',
       
-      // Редактирование
       editing: 'Редактирование',
       updateDetails: 'Обновите детали задачи',
       saveChanges: 'Сохранить изменения',
@@ -231,13 +316,11 @@ export const translations = {
       taskUpdated: 'Задача успешно обновлена',
       updateError: 'Не удалось обновить задачу',
       
-      // Быстрые действия времени
       quickSetMorning: 'Утром',
       quickSetAfternoon: 'Днем', 
       quickSetEvening: 'Вечером',
       quickSetTomorrow: 'Завтра',
       
-      // Мета информация
       charCounter: '{current}/{max}',
       dateNotSpecified: 'Дата не указана',
       timeNotSpecified: 'Время не указано',
@@ -304,6 +387,95 @@ export const translations = {
       confirmation: 'Растау',
       ok: 'Жарайды',
       understand: 'Түсінікті',
+    },
+
+    // Бастапқы бет
+    start: {
+      title: 'TaskAI',
+      subtitle: 'Тапсырмаларыңыз үшін ақылды көмекші',
+      subtitleNight: 'Түнде де тиімді жоспарлаңыз',
+      getStarted: 'Бастау',
+      features: {
+        ai: 'AI ұсыныстары',
+        quick: 'Жылдам жасау',
+        stats: 'Статистика',
+      },
+      autoTheme: {
+        day: 'Күндізгі тема автоматты түрде белсенді (06:00-18:00)',
+        night: 'Түнгі тема автоматты түрде белсенді (18:00-06:00)',
+      },
+    },
+
+    // Кіру беті
+    login: {
+      title: 'Қайта келдіңіз!',
+      subtitle: 'Аккаунтыңызға кіріңіз',
+      email: 'Email',
+      password: 'Құпия сөз',
+      emailPlaceholder: 'Email енгізіңіз',
+      passwordPlaceholder: 'Құпия сөзіңізді енгізіңіз',
+      loginButton: 'Кіру',
+      orDivider: 'немесе',
+      microsoftButton: 'Microsoft арқылы жалғастыру',
+      googleButton: 'Google арқылы жалғастыру',
+      noAccount: 'Аккаунт жоқ па?',
+      signUp: 'Тіркелу',
+      validation: {
+        fillAllFields: 'Барлық өрістерді толтырыңыз',
+        validEmail: 'Дұрыс email мекенжайын енгізіңіз',
+        invalidCredentials: 'Қате email немесе құпия сөз',
+      },
+      errors: {
+        googleCancelled: 'Google арқылы кіру болдырылмады',
+        googleInProgress: 'Авторизация қазірдің өзінде орындалуда',
+        googlePlayServices: 'Google Play қызметтері қолжетімсіз',
+        microsoftCancelled: 'Авторизация болдырылмады',
+        networkError: 'Желі қатесі орын алды',
+        loginFailed: 'Кіру қатесі',
+        unknownError: 'Белгісіз қате орын алды',
+      },
+    },
+
+    // Тіркелу беті
+    register: {
+      title: 'Қош келдіңіз!',
+      titleNight: 'Бізге қосылыңыз!',
+      subtitle: 'Аккаунтыңызды жасаңыз',
+      firstName: 'Аты',
+      lastName: 'Тегі',
+      email: 'Email',
+      password: 'Құпия сөз',
+      firstNamePlaceholder: 'Атыңыз',
+      lastNamePlaceholder: 'Тегіңіз',
+      emailPlaceholder: 'example@email.com',
+      passwordPlaceholder: 'Кемінде 6 символ',
+      createAccount: 'Аккаунт жасау',
+      creatingAccount: 'Аккаунт жасалуда...',
+      whatAwaits: 'Сізді не күтеді:',
+      features: {
+        aiHelper: 'Тапсырмалар жасау үшін AI көмекшісі',
+        sync: 'Құрылғылар арасында синхрондау',
+        reminders: 'Ақылды еске салғыштар',
+        autoThemeDay: 'Автоматты күндізгі тема',
+        autoThemeNight: 'Автоматты түнгі тема',
+      },
+      hasAccount: 'Аккаунт бар ма?',
+      signIn: 'Кіру',
+      validation: {
+        fillAllFields: 'Барлық өрістерді толтырыңыз',
+        passwordLength: 'Құпия сөз кемінде 6 символдан тұруы керек',
+        validEmail: 'Дұрыс email мекенжайын енгізіңіз',
+      },
+      success: {
+        title: 'Тіркелу сәтті!',
+      },
+    },
+
+    // Автоматты тема
+    autoTheme: {
+      auto: 'Авто',
+      day: 'Күн',
+      night: 'Түн',
     },
 
     // Тапсырма санаттары
@@ -487,14 +659,12 @@ export const translations = {
       backToTasks: 'Тапсырмаларға оралу',
       loadingTask: 'Тапсырма жүктелуде...',
       
-      // Статустар мен әрекеттер
       statusTask: 'Тапсырма мәртебесі',
       resume: 'Жалғастыру',
       complete: 'Аяқтау',
       inProcess: 'Процесте',
       finished: 'Орындалды',
       
-      // Өзгерту
       editing: 'Өзгерту',
       updateDetails: 'Тапсырма мәліметтерін жаңартыңыз',
       saveChanges: 'Өзгерістерді сақтау',
@@ -502,13 +672,11 @@ export const translations = {
       taskUpdated: 'Тапсырма сәтті жаңартылды',
       updateError: 'Тапсырманы жаңарту мүмкін болмады',
       
-      // Уақыттың жылдам әрекеттері
       quickSetMorning: 'Таңертең',
       quickSetAfternoon: 'Күндіз', 
       quickSetEvening: 'Кешке',
       quickSetTomorrow: 'Ертең',
       
-      // Мета ақпарат
       charCounter: '{current}/{max}',
       dateNotSpecified: 'Күні көрсетілмеген',
       timeNotSpecified: 'Уақыты көрсетілмеген',
@@ -575,6 +743,95 @@ export const translations = {
       confirmation: 'Confirmation',
       ok: 'OK',
       understand: 'Understood',
+    },
+
+    // Start Screen
+    start: {
+      title: 'TaskAI',
+      subtitle: 'Smart assistant for your tasks',
+      subtitleNight: 'Plan efficiently even at night',
+      getStarted: 'Get Started',
+      features: {
+        ai: 'AI Suggestions',
+        quick: 'Quick Creation',
+        stats: 'Statistics',
+      },
+      autoTheme: {
+        day: 'Day theme automatically active (06:00-18:00)',
+        night: 'Night theme automatically active (18:00-06:00)',
+      },
+    },
+
+    // Login Screen
+    login: {
+      title: 'Welcome Back!',
+      subtitle: 'Sign in to your account',
+      email: 'Email',
+      password: 'Password',
+      emailPlaceholder: 'Enter your email',
+      passwordPlaceholder: 'Enter your password',
+      loginButton: 'Sign In',
+      orDivider: 'or',
+      microsoftButton: 'Continue with Microsoft',
+      googleButton: 'Continue with Google',
+      noAccount: 'No account?',
+      signUp: 'Sign Up',
+      validation: {
+        fillAllFields: 'Please fill in all fields',
+        validEmail: 'Please enter a valid email address',
+        invalidCredentials: 'Invalid email or password',
+      },
+      errors: {
+        googleCancelled: 'Google sign-in was cancelled',
+        googleInProgress: 'Authentication already in progress',
+        googlePlayServices: 'Google Play services not available',
+        microsoftCancelled: 'Authentication was cancelled',
+        networkError: 'Network error occurred',
+        loginFailed: 'Login Failed',
+        unknownError: 'An unknown error occurred',
+      },
+    },
+
+    // Register Screen
+    register: {
+      title: 'Welcome!',
+      titleNight: 'Join Us!',
+      subtitle: 'Create your account',
+      firstName: 'First Name',
+      lastName: 'Last Name',
+      email: 'Email',
+      password: 'Password',
+      firstNamePlaceholder: 'Your first name',
+      lastNamePlaceholder: 'Your last name',
+      emailPlaceholder: 'example@email.com',
+      passwordPlaceholder: 'Minimum 6 characters',
+      createAccount: 'Create Account',
+      creatingAccount: 'Creating account...',
+      whatAwaits: 'What awaits you:',
+      features: {
+        aiHelper: 'AI assistant for task creation',
+        sync: 'Sync across devices',
+        reminders: 'Smart reminders',
+        autoThemeDay: 'Automatic day theme',
+        autoThemeNight: 'Automatic night theme',
+      },
+      hasAccount: 'Already have an account?',
+      signIn: 'Sign In',
+      validation: {
+        fillAllFields: 'Please fill in all fields',
+        passwordLength: 'Password must contain at least 6 characters',
+        validEmail: 'Please enter a valid email address',
+      },
+      success: {
+        title: 'Registration Successful!',
+      },
+    },
+
+    // Auto Theme
+    autoTheme: {
+      auto: 'Auto',
+      day: 'Day',
+      night: 'Night',
     },
 
     // Task Categories
@@ -759,14 +1016,12 @@ export const translations = {
       backToTasks: 'Back to tasks',
       loadingTask: 'Loading task...',
       
-      // Statuses and actions
       statusTask: 'Task status',
       resume: 'Resume',
       complete: 'Complete',
       inProcess: 'In process',
       finished: 'Finished',
       
-      // Editing
       editing: 'Editing',
       updateDetails: 'Update task details',
       saveChanges: 'Save changes',
@@ -774,13 +1029,11 @@ export const translations = {
       taskUpdated: 'Task successfully updated',
       updateError: 'Failed to update task',
       
-      // Quick time actions
       quickSetMorning: 'Morning',
       quickSetAfternoon: 'Afternoon', 
       quickSetEvening: 'Evening',
       quickSetTomorrow: 'Tomorrow',
       
-      // Meta information
       charCounter: '{current}/{max}',
       dateNotSpecified: 'Date not specified',
       timeNotSpecified: 'Time not specified',

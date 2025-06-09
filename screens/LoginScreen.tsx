@@ -25,6 +25,7 @@ import { LinearGradient } from 'react-native-linear-gradient';
 import { useAutoTheme } from './useAutoTheme';
 import { getTimeIcon, getTimeText } from './authThemeStyles';
 import { useLocalization } from './LocalizationContext';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,7 +44,7 @@ type AuthResult = {
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   // Используем автоматическую тему и локализацию
   const { theme, isDayTime, isAutoMode } = useAutoTheme();
-  const { loadUserLanguage, t } = useLocalization();
+  const { t } = useLocalization(); // Убрали loadUserLanguage
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,22 +69,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       return isDayTime 
         ? ['#8BC34A', '#6B6F45', '#4A5D23'] // Ваш оригинальный дневной градиент
         : ['#3F51B5', '#5C6BC0', '#7986CB']; // Ночные фиолетовые тона
-    }
-  };
-
-  // Функция для загрузки языковых настроек пользователя
-  const loadUserLanguageSettings = async (userData: any) => {
-    try {
-      // Используем ID пользователя или email как идентификатор
-      const userId = userData.id || userData._id || userData.email;
-      if (userId) {
-        console.log(`🌍 Загружаем языковые настройки для пользователя: ${userId}`);
-        await loadUserLanguage(userId.toString());
-      } else {
-        console.warn('⚠️ Не удалось получить ID пользователя для загрузки языковых настроек');
-      }
-    } catch (error) {
-      console.error('❌ Ошибка загрузки языковых настроек:', error);
     }
   };
 
@@ -116,24 +101,21 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       await AsyncStorage.setItem('token', data.token);
       await AsyncStorage.setItem('user', JSON.stringify(data.user));
 
-      // 🆕 Загружаем языковые настройки пользователя
-      await loadUserLanguageSettings(data.user);
-
       navigation.replace("Home", { refreshed: true });
     } catch (error: unknown) {
       if (error instanceof Error) {
         if (error.message.includes(statusCodes.SIGN_IN_CANCELLED)) {
-          Alert.alert(t('common.cancel'), 'Вход через Google был отменён');
+          Alert.alert(t('common.cancel'), t('login.errors.googleCancelled'));
         } else if (error.message.includes(statusCodes.IN_PROGRESS)) {
-          Alert.alert('В процессе', 'Авторизация уже выполняется');
+          Alert.alert(t('login.errors.googleInProgress'), t('login.errors.googleInProgress'));
         } else if (error.message.includes(statusCodes.PLAY_SERVICES_NOT_AVAILABLE)) {
-          Alert.alert(t('common.error'), 'Сервисы Google Play недоступны');
+          Alert.alert(t('common.error'), t('login.errors.googlePlayServices'));
         } else {
           Alert.alert(t('common.error'), error.message);
         }
         console.error(error);
       } else {
-        Alert.alert(t('common.error'), 'Произошла неизвестная ошибка');
+        Alert.alert(t('common.error'), t('login.errors.unknownError'));
         console.error('Unknown error:', error);
       }
     } finally {
@@ -200,21 +182,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       await AsyncStorage.setItem('token', authResponse.token);
       await AsyncStorage.setItem('user', JSON.stringify(authResponse.user));
 
-      // 🆕 Загружаем языковые настройки пользователя
-      await loadUserLanguageSettings(authResponse.user);
-
       console.log('Microsoft authentication successful');
       navigation.replace('Home', { refreshed: true });
     } catch (error) {
       console.error('Microsoft authentication error:', error);
-      let errorMessage = 'Failed to authenticate with Microsoft';
+      let errorMessage = t('login.errors.microsoftCancelled');
       
       if (error instanceof Error) {
         errorMessage = error.message;
         if (error.message.includes('User cancelled flow')) {
-          errorMessage = 'Authentication was cancelled';
+          errorMessage = t('login.errors.microsoftCancelled');
         } else if (error.message.includes('network error')) {
-          errorMessage = 'Network error occurred';
+          errorMessage = t('login.errors.networkError');
         }
       }
 
@@ -235,12 +214,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert(t('common.error'), "Please fill in all fields");
+      Alert.alert(t('common.error'), t('login.validation.fillAllFields'));
       return;
     }
 
     if (!validateEmail(email)) {
-      Alert.alert(t('common.error'), "Please enter a valid email address");
+      Alert.alert(t('common.error'), t('login.validation.validEmail'));
       return;
     }
 
@@ -256,9 +235,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       await AsyncStorage.setItem("token", res.token);
       await AsyncStorage.setItem("user", JSON.stringify(res.user));
 
-      // 🆕 Загружаем языковые настройки пользователя
-      await loadUserLanguageSettings(res.user);
-
       navigation.replace("Home", { refreshed: true });
     } catch (error) {
       console.error("Login error:", error);
@@ -266,13 +242,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       if (error instanceof Error) {
         if (error.message.includes("credentials")) {
-          errorMessage = "Invalid email or password";
+          errorMessage = t('login.validation.invalidCredentials');
         } else {
           errorMessage = error.message;
         }
       }
 
-      Alert.alert("Login Failed", errorMessage);
+      Alert.alert(t('login.errors.loginFailed'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -293,6 +269,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardView}
         >
+          {/* Кнопка переключения языка */}
+          <LanguageSwitcher 
+            theme={theme} 
+            isDayTime={isDayTime}
+            style={styles.languageSwitcher}
+          />
+
           {/* Индикатор автоматической темы */}
           {isAutoMode && (
             <View style={styles.timeIndicator}>
@@ -300,7 +283,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 {getTimeIcon(isDayTime)}
               </Text>
               <Text style={styles.timeIndicatorText}>
-                Авто • {getTimeText(isDayTime)}
+                {t('autoTheme.auto')} • {getTimeText(isDayTime)}
               </Text>
             </View>
           )}
@@ -311,18 +294,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
           <View style={styles.content}>
             <View style={styles.titleContainer}>
-              <Text style={styles.title}>С возвращением!</Text>
-              <Text style={styles.subtitle}>Войдите в свой аккаунт</Text>
+              <Text style={styles.title}>{t('login.title')}</Text>
+              <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
             </View>
 
             <View style={styles.formContainer}>
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>{t('login.email')}</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="mail-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Введите ваш email"
+                    placeholder={t('login.emailPlaceholder')}
                     placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                     value={email}
                     onChangeText={setEmail}
@@ -334,12 +317,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Пароль</Text>
+                <Text style={styles.label}>{t('login.password')}</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="lock-closed-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
-                    placeholder="Введите ваш пароль"
+                    placeholder={t('login.passwordPlaceholder')}
                     placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                     value={password}
                     onChangeText={setPassword}
@@ -374,14 +357,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   {loading ? (
                     <ActivityIndicator color={theme.colors.primary} />
                   ) : (
-                    <Text style={styles.buttonText}>Войти</Text>
+                    <Text style={styles.buttonText}>{t('login.loginButton')}</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
 
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>или</Text>
+                <Text style={styles.dividerText}>{t('login.orDivider')}</Text>
                 <View style={styles.dividerLine} />
               </View>
 
@@ -397,7 +380,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   {microsoftLoading ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.socialButtonText}>Продолжить с Microsoft</Text>
+                    <Text style={styles.socialButtonText}>{t('login.microsoftButton')}</Text>
                   )}
                 </View>
               </TouchableOpacity>
@@ -414,7 +397,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   {googleLoading ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.socialButtonText}>Продолжить с Google</Text>
+                    <Text style={styles.socialButtonText}>{t('login.googleButton')}</Text>
                   )}
                 </View>
               </TouchableOpacity>
@@ -425,7 +408,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 disabled={loading || microsoftLoading || googleLoading}
               >
                 <Text style={styles.registerText}>
-                  Нет аккаунта? <Text style={styles.registerHighlight}>Зарегистрироваться</Text>
+                  {t('login.noAccount')} <Text style={styles.registerHighlight}>{t('login.signUp')}</Text>
                 </Text>
               </TouchableOpacity>
             </View>
@@ -446,6 +429,12 @@ const createThemedStyles = (theme: any, isDayTime: boolean) => StyleSheet.create
   },
   keyboardView: {
     flex: 1,
+  },
+  languageSwitcher: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 20,
+    zIndex: 10,
   },
   timeIndicator: {
     position: 'absolute',

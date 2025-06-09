@@ -6,17 +6,20 @@ import { register } from "../server/api";
 import { LinearGradient } from 'react-native-linear-gradient';
 import Ionicons from "react-native-vector-icons/Ionicons";
 
-// Импортируем автоматическую тему
+// Импортируем автоматическую тему и локализацию
 import { useAutoTheme } from './useAutoTheme';
 import { getTimeIcon, getTimeText } from './authThemeStyles';
+import { useLocalization } from './LocalizationContext';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const { width, height } = Dimensions.get('window');
 
 type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
-  // Используем автоматическую тему
+  // Используем автоматическую тему и локализацию
   const { theme, isDayTime, isAutoMode } = useAutoTheme();
+  const { t } = useLocalization(); // Убрали loadUserLanguage
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,18 +43,18 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleRegister = async () => {
     if (!email || !password || !name || !surname) {
-      Alert.alert("Ошибка", "Пожалуйста, заполните все поля");
+      Alert.alert(t('common.error'), t('register.validation.fillAllFields'));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("Ошибка", "Пароль должен содержать минимум 6 символов");
+      Alert.alert(t('common.error'), t('register.validation.passwordLength'));
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert("Ошибка", "Введите корректный email адрес");
+      Alert.alert(t('common.error'), t('register.validation.validEmail'));
       return;
     }
 
@@ -60,21 +63,21 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       const res = await register(email, password, name, surname);
       
       if (res.error) {
-        Alert.alert("Ошибка", res.error);
+        Alert.alert(t('common.error'), res.error);
       } else if (res.emailSent) {
         Alert.alert(
-          "Регистрация успешна!", 
+          t('register.success.title'), 
           res.message,
           [
             {
-              text: "OK",
+              text: t('common.ok'),
               onPress: () => navigation.navigate("EmailVerification", { email })
             }
           ]
         );
       }
     } catch (error: any) {
-      Alert.alert("Ошибка", error.message || "Не удалось зарегистрироваться");
+      Alert.alert(t('common.error'), error.message || t('errors.genericError'));
     } finally {
       setLoading(false);
     }
@@ -95,6 +98,13 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardView}
         >
+          {/* Кнопка переключения языка */}
+          <LanguageSwitcher 
+            theme={theme} 
+            isDayTime={isDayTime}
+            style={styles.languageSwitcher}
+          />
+
           {/* Индикатор автоматической темы */}
           {isAutoMode && (
             <View style={styles.timeIndicator}>
@@ -102,7 +112,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 {getTimeIcon(isDayTime)}
               </Text>
               <Text style={styles.timeIndicatorText}>
-                Авто • {getTimeText(isDayTime)}
+                {t('autoTheme.auto')} • {getTimeText(isDayTime)}
               </Text>
             </View>
           )}
@@ -115,21 +125,24 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.content}>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>
-                {isDayTime ? 'Добро пожаловать!' : 'Присоединяйтесь к нам!'}
+                {isDayTime ? 
+                  t('register.title') : 
+                  t('register.titleNight')
+                }
               </Text>
-              <Text style={styles.subtitle}>Создайте свой аккаунт</Text>
+              <Text style={styles.subtitle}>{t('register.subtitle')}</Text>
               <View style={styles.titleUnderline} />
             </View>
 
             <View style={styles.formContainer}>
               <View style={styles.inputRow}>
                 <View style={[styles.inputContainer, { marginRight: 10 }]}>
-                  <Text style={styles.label}>Имя</Text>
+                  <Text style={styles.label}>{t('register.firstName')}</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="person-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Ваше имя"
+                      placeholder={t('register.firstNamePlaceholder')}
                       placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                       value={name}
                       onChangeText={setName}
@@ -140,12 +153,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
 
                 <View style={[styles.inputContainer, { marginLeft: 10 }]}>
-                  <Text style={styles.label}>Фамилия</Text>
+                  <Text style={styles.label}>{t('register.lastName')}</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="person-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Ваша фамилия"
+                      placeholder={t('register.lastNamePlaceholder')}
                       placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                       value={surname}
                       onChangeText={setSurname}
@@ -157,12 +170,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>{t('register.email')}</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="mail-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="example@email.com"
+                    placeholder={t('register.emailPlaceholder')}
                     placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                     value={email}
                     onChangeText={setEmail}
@@ -174,12 +187,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Пароль</Text>
+                <Text style={styles.label}>{t('register.password')}</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="lock-closed-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
-                    placeholder="Минимум 6 символов"
+                    placeholder={t('register.passwordPlaceholder')}
                     placeholderTextColor={theme.isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(107, 111, 69, 0.6)'}
                     secureTextEntry={secureEntry}
                     value={password}
@@ -212,7 +225,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                   end={{x: 0, y: 1}}
                 >
                   <Text style={styles.buttonText}>
-                    {loading ? "Создание аккаунта..." : "Создать аккаунт"}
+                    {loading ? t('register.creatingAccount') : t('register.createAccount')}
                   </Text>
                   {!loading && (
                     <View style={styles.buttonIcon}>
@@ -223,27 +236,27 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
 
               <View style={styles.featuresContainer}>
-                <Text style={styles.featuresTitle}>Что вас ждет:</Text>
+                <Text style={styles.featuresTitle}>{t('register.whatAwaits')}</Text>
                 <View style={styles.featuresList}>
                   <View style={styles.featureItem}>
                     <View style={styles.featureIcon}>
                       <Text style={styles.featureIconText}>🤖</Text>
                     </View>
-                    <Text style={styles.featureText}>ИИ-помощник для создания задач</Text>
+                    <Text style={styles.featureText}>{t('register.features.aiHelper')}</Text>
                   </View>
                   
                   <View style={styles.featureItem}>
                     <View style={styles.featureIcon}>
                       <Text style={styles.featureIconText}>📱</Text>
                     </View>
-                    <Text style={styles.featureText}>Синхронизация между устройствами</Text>
+                    <Text style={styles.featureText}>{t('register.features.sync')}</Text>
                   </View>
                   
                   <View style={styles.featureItem}>
                     <View style={styles.featureIcon}>
                       <Text style={styles.featureIconText}>⚡</Text>
                     </View>
-                    <Text style={styles.featureText}>Умные напоминания</Text>
+                    <Text style={styles.featureText}>{t('register.features.reminders')}</Text>
                   </View>
 
                   <View style={styles.featureItem}>
@@ -253,7 +266,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                       </Text>
                     </View>
                     <Text style={styles.featureText}>
-                      Автоматическая {isDayTime ? 'дневная' : 'ночная'} тема
+                      {isDayTime ? 
+                        t('register.features.autoThemeDay') : 
+                        t('register.features.autoThemeNight')
+                      }
                     </Text>
                   </View>
                 </View>
@@ -265,7 +281,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 disabled={loading}
               >
                 <Text style={styles.loginText}>
-                  Уже есть аккаунт? <Text style={styles.loginHighlight}>Войти</Text>
+                  {t('register.hasAccount')} <Text style={styles.loginHighlight}>{t('register.signIn')}</Text>
                 </Text>
               </TouchableOpacity>
             </View>
@@ -286,6 +302,12 @@ const createThemedStyles = (theme: any, isDayTime: boolean) => StyleSheet.create
   },
   keyboardView: {
     flex: 1,
+  },
+  languageSwitcher: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 20,
+    zIndex: 10,
   },
   timeIndicator: {
     position: 'absolute',

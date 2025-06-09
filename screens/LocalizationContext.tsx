@@ -5,15 +5,13 @@ import { translations, Languages } from '../services/translations';
 
 interface LocalizationContextType {
   language: Languages;
-  setLanguage: (lang: Languages) => void;
+  setLanguage: (lang: Languages) => Promise<void>;
   t: (key: string) => string;
   availableLanguages: Array<{
     code: Languages;
     name: string;
     nativeName: string;
   }>;
-  loadUserLanguage: (userId: string) => Promise<void>;
-  clearUserLanguage: () => void;
 }
 
 const LocalizationContext = createContext<LocalizationContextType | undefined>(undefined);
@@ -32,7 +30,7 @@ interface LocalizationProviderProps {
 
 export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ children }) => {
   const [language, setLanguageState] = useState<Languages>('ru');
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const availableLanguages = [
     { code: 'ru' as Languages, name: 'Russian', nativeName: 'Русский' },
@@ -40,69 +38,55 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
     { code: 'en' as Languages, name: 'English', nativeName: 'English' },
   ];
 
-  // Функция для получения ключа хранения языка пользователя
-  const getUserLanguageKey = (userId: string) => `user_language_${userId}`;
+  // Единый ключ для хранения языка приложения
+  const LANGUAGE_KEY = 'app_language';
 
-  // Загрузка языка конкретного пользователя
-  const loadUserLanguage = async (userId: string) => {
+  // Загрузка сохраненного языка
+  const loadLanguage = async () => {
     try {
-      console.log(`🌍 Загрузка языка для пользователя: ${userId}`);
-      setCurrentUserId(userId);
-      
-      const userLanguageKey = getUserLanguageKey(userId);
-      const savedLanguage = await AsyncStorage.getItem(userLanguageKey);
+      console.log('🌍 Загрузка сохраненного языка приложения');
+      const savedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
       
       if (savedLanguage && ['ru', 'kk', 'en'].includes(savedLanguage)) {
         console.log(`✅ Найден сохраненный язык: ${savedLanguage}`);
         setLanguageState(savedLanguage as Languages);
       } else {
-        console.log(`📝 Устанавливаем язык по умолчанию: ru`);
+        console.log('📝 Устанавливаем язык по умолчанию: ru');
         setLanguageState('ru');
-        // Сохраняем язык по умолчанию для этого пользователя
-        await AsyncStorage.setItem(userLanguageKey, 'ru');
+        await AsyncStorage.setItem(LANGUAGE_KEY, 'ru');
       }
     } catch (error) {
-      console.error('❌ Ошибка загрузки языка пользователя:', error);
-      setLanguageState('ru'); // Fallback
+      console.error('❌ Ошибка загрузки языка:', error);
+      setLanguageState('ru');
     }
   };
 
-  // Функция для смены языка (сохраняется для текущего пользователя)
+  // Функция для смены языка
   const setLanguage = async (lang: Languages) => {
     try {
-      console.log(`🔄 Смена языка на: ${lang} для пользователя: ${currentUserId}`);
+      console.log(`🔄 Смена языка на: ${lang}`);
       setLanguageState(lang);
       
-      if (currentUserId) {
-        const userLanguageKey = getUserLanguageKey(currentUserId);
-        await AsyncStorage.setItem(userLanguageKey, lang);
-        console.log(`💾 Язык сохранен для пользователя ${currentUserId}`);
-      } else {
-        console.warn('⚠️ Пользователь не авторизован, язык не сохранен');
-      }
+      // Сохраняем язык в AsyncStorage
+      await AsyncStorage.setItem(LANGUAGE_KEY, lang);
+      console.log(`💾 Язык сохранен: ${lang}`);
     } catch (error) {
       console.error('❌ Ошибка сохранения языка:', error);
     }
   };
 
-  // Очистка языка при выходе из аккаунта
-  const clearUserLanguage = () => {
-    console.log('🔄 Сброс языка на default при выходе из аккаунта');
-    setCurrentUserId(null);
-    setLanguageState('ru'); // Возвращаем к языку по умолчанию
-  };
-
-  // Инициализация при первом запуске (без пользователя)
+  // Инициализация при первом запуске
   useEffect(() => {
-    const initializeDefaultLanguage = async () => {
-      if (!currentUserId) {
-        console.log('🌍 Инициализация с языком по умолчанию');
-        setLanguageState('ru');
+    const initialize = async () => {
+      if (!isInitialized) {
+        console.log('🌍 Инициализация LocalizationProvider');
+        await loadLanguage();
+        setIsInitialized(true);
       }
     };
 
-    initializeDefaultLanguage();
-  }, []);
+    initialize();
+  }, [isInitialized]);
 
   // Функция для получения перевода
   const t = (key: string): string => {
@@ -137,8 +121,6 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
     setLanguage,
     t,
     availableLanguages,
-    loadUserLanguage,
-    clearUserLanguage,
   };
 
   return (

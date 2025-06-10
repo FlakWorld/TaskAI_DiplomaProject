@@ -174,12 +174,12 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       Alert.alert(t('common.error'), t('tasks.enterTitle'));
       return;
     }
-  
+
     if (!token) {
       Alert.alert(t('common.error'), t('errors.genericError'));
       return;
     }
-  
+
     try {
       // Получаем финальный анализ от ИИ
       let finalAnalysis = taskAnalysis;
@@ -192,12 +192,12 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
         title: task,
         date: formatDate(date),
         time: formatTime(time),
-        status: t('tasks.inProgress'),
+        status: "в прогрессе", // ИСПРАВЛЕНО: используем русский статус напрямую
         tags: selectedTags, // Сохраняем ключи категорий
         // Добавляем результаты анализа ИИ
         analysis: finalAnalysis
       };
-  
+
       console.log("Отправка данных:", taskData);
       
       const response = await createTask(
@@ -208,7 +208,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
         taskData.tags,
         token
       );
-  
+
       console.log("Ответ сервера:", response);
       
       await saveTaskPattern(task); // обучение ИИ
@@ -217,7 +217,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       let alertMessage = t('tasks.taskCreated');
       if (finalAnalysis) {
         const priorityText = finalAnalysis.priority === 'high' ? t('common.high') : 
-                           finalAnalysis.priority === 'medium' ? t('common.medium') : t('common.low');
+                          finalAnalysis.priority === 'medium' ? t('common.medium') : t('common.low');
         const sentimentText = finalAnalysis.sentiment.sentiment === 'positive' ? t('common.positive') : 
                             finalAnalysis.sentiment.sentiment === 'negative' ? t('common.difficult') : t('common.neutral');
         
@@ -236,7 +236,7 @@ export default function CreationTask({ navigation }: ScreenProps<"Task">) {
       Alert.alert(t('common.success'), alertMessage, [
         { text: "OK", onPress: () => navigation.navigate("Home", { refreshed: true }) }
       ]);
-  
+
     } catch (error) {
       console.error("Полная ошибка:", error);
       Alert.alert(t('common.error'), t('errors.savingError'));

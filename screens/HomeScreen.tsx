@@ -19,7 +19,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getTasks, deleteTask } from "../server/api";
 import { ScreenProps, TASK_CATEGORIES } from "../types";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { getSuggestedTask, saveTaskPattern, rejectTaskPattern } from "../services/aiService";
+import { getSuggestedTask, 
+  saveTaskPattern, 
+  rejectTaskPattern,
+  cleanupDeletedTaskPatterns,
+  removeTaskFromPatterns,
+  getPatternStats } from "../services/aiService";
 import { tensorflowLiteService } from "../services/tensorflowService";
 import { Image } from "react-native";
 import DinoImage from "../assets/dino.jpg";
@@ -37,9 +42,8 @@ type Task = {
   title: string;
   date?: string;
   time?: string;
-  status: "в прогрессе" | "выполнено";
+  status: "в прогрессе" | "выполнено"; // Оригинальные русские статусы
   tags?: string[];
-  // Новые поля для ИИ анализа
   analysis?: {
     sentiment: {
       sentiment: 'positive' | 'negative' | 'neutral';
@@ -316,6 +320,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const [token, setToken] = useState<string | null>(null);
   const [suggestedTask, setSuggestedTask] = useState<string | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [patternStats, setPatternStats] = useState<any>(null);
   
   // Новые состояния для ИИ анализа
   const [aiStats, setAiStats] = useState<any>(null);
@@ -430,10 +435,26 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
 
   useEffect(() => {
     (async () => {
-      const task = await getSuggestedTask();
-      if (task) setSuggestedTask(task);
+      if (tasks.length > 0) {
+        // Получаем текущие названия задач
+        const currentTaskTitles = tasks.map(task => task.title);
+        
+        // Очищаем паттерны от удаленных задач
+        await cleanupDeletedTaskPatterns(currentTaskTitles);
+        
+        // Получаем предложение с учетом существующих задач
+        const task = await getSuggestedTask(new Date(), currentTaskTitles);
+        setSuggestedTask(task);
+        
+        // Получаем статистику паттернов для отладки
+        const stats = await getPatternStats();
+        setPatternStats(stats);
+        console.log('📊 Статистика паттернов:', stats);
+      } else {
+        setSuggestedTask(null);
+      }
     })();
-  }, []);
+  }, [tasks]);
 
   // Анимация появления предложения ИИ
   useEffect(() => {
@@ -561,22 +582,20 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   // Планирование уведомлений (исправленная версия)
   const scheduleNotifications = async (tasks: Task[]) => {
     try {
-      // Проверяем базовые разрешения на уведомления
       const hasNotificationPermission = await checkAndRequestNotificationPermissions();
       if (!hasNotificationPermission) {
         return;
       }
       
-      // Проверяем разрешения на точные будильники
       await checkExactAlarmPermission();
       
-      // Отменяем все существующие уведомления
       PushNotification.cancelAllLocalNotifications();
 
       const now = new Date();
       let scheduledCount = 0;
 
       tasks.forEach((task) => {
+        // ИСПРАВЛЕНО: используем оригинальный русский статус
         if (task.status === "выполнено") {
           return;
         }
@@ -598,7 +617,6 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
               return;
             }
 
-            // Время уведомления - за 10 минут до задачи
             const notifyTime = new Date(taskDate.getTime() - 10 * 60 * 1000);
 
             if (notifyTime > now) {
@@ -645,16 +663,31 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     if (!suggestedTask || !token) return;
 
     try {
+      // Проверяем, что предложенная задача еще не существует
+      const taskExists = tasks.some(task => 
+        task.title.toLowerCase() === suggestedTask.toLowerCase()
+      );
+      
+      if (taskExists) {
+        Alert.alert(
+          t('common.error'), 
+          `Задача "${suggestedTask}" уже существует`
+        );
+        setSuggestedTask(null);
+        return;
+      }
+
       await saveTaskPattern(suggestedTask);
       const now = new Date();
       const newTask = {
         title: suggestedTask,
         date: formatDate(now),
         time: formatTime(now),
-        status: t('tasks.inProgress'),
+        status: "в прогрессе",
         tags: [],
       };
-      await fetch("http://192.168.1.11:5000/tasks", {
+      
+      await fetch("http://10.201.1.19:5000/tasks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -662,6 +695,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
         },
         body: JSON.stringify(newTask),
       });
+      
       Alert.alert("✅ " + t('tasks.taskCreated'), `"${suggestedTask}" добавлена`);
       setSuggestedTask(null);
       loadTasks(token);
@@ -670,6 +704,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
       Alert.alert(t('common.error'), t('errors.savingError'));
     }
   };
+
 
   // Форматирование даты и времени для отображения
   const formatDisplayDate = (dateString?: string) => {
@@ -717,13 +752,17 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
           ...task,
           date: formatDisplayDate(task.date),
           time: formatDisplayTime(task.time),
-          status: task.status || t('tasks.inProgress'),
+          status: task.status || "в прогрессе",
           tags: task.tags || [],
         }));
 
         // Анализируем задачи с помощью ИИ
         const analyzedTasks = await analyzeTasksWithAI(formattedTasks);
         setTasks(analyzedTasks);
+        
+        // НОВОЕ: Очищаем паттерны от удаленных задач после загрузки
+        const currentTaskTitles = analyzedTasks.map(task => task.title);
+        await cleanupDeletedTaskPatterns(currentTaskTitles);
         
         scheduleNotifications(analyzedTasks);
       } catch (error) {
@@ -741,6 +780,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     },
     [navigation, t]
   );
+
 
   const loadData = useCallback(async () => {
     // Обновляем пользователя и тему
@@ -781,17 +821,30 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
     if (!token) return;
 
     try {
+      // Находим задачу которую удаляем, чтобы удалить её из паттернов
+      const taskToDelete = tasks.find(task => task._id === id);
+      
+      if (taskToDelete) {
+        // Удаляем задачу из паттернов ИИ
+        await removeTaskFromPatterns(taskToDelete.title);
+        console.log(`🗑️ Задача "${taskToDelete.title}" удалена из паттернов ИИ`);
+      }
+      
       // Отменяем уведомление для удаляемой задачи
       const numericId = stringToNumericId(id);
       PushNotification.cancelLocalNotifications({ id: numericId.toString() });
       
+      // Удаляем задачу с сервера
       await deleteTask(id, token);
+      
+      // Обновляем локальный список
       setTasks((prev) => prev.filter((task) => task._id !== id));
     } catch (error) {
       console.error("Failed to delete task:", error);
       Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.deleteError'));
     }
   };
+
 
   const handleLogout = async () => {
     // Отменяем все уведомления при выходе
@@ -824,8 +877,9 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
-    if (a.status === t('tasks.inProgress') && b.status === t('tasks.completed')) return -1;
-    if (a.status === t('tasks.completed') && b.status === t('tasks.inProgress')) return 1;
+    // ИСПРАВЛЕНО: используем оригинальные русские статусы
+    if (a.status === 'в прогрессе' && b.status === 'выполнено') return -1;
+    if (a.status === 'выполнено' && b.status === 'в прогрессе') return 1;
     return a.title.localeCompare(b.title);
   });
 
@@ -862,14 +916,20 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
   const renderTaskItem = ({ item }: { item: Task }) => (
     <View style={styles.taskAnimationContainer}>
       <TouchableOpacity
-        style={[styles.task, item.status === t('tasks.completed') && styles.taskCompleted]}
+        style={[
+          styles.task, 
+          // ИСПРАВЛЕНО: используем оригинальный русский статус
+          item.status === 'выполнено' && styles.taskCompleted
+        ]}
         onPress={() => navigation.navigate("EditTask", { id: item._id })}
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={item.status === t('tasks.completed') ? 
-            (theme.isDark ? [theme.colors.card, theme.colors.surface] : ['#E8F5E8', '#F0F8F0']) : 
-            (theme.isDark ? [theme.colors.surface, theme.colors.card] : ['#FFFFFF', '#F8F9FA'])
+          colors={
+            // ИСПРАВЛЕНО: используем оригинальный русский статус
+            item.status === 'выполнено' ? 
+              (theme.isDark ? [theme.colors.card, theme.colors.surface] : ['#E8F5E8', '#F0F8F0']) : 
+              (theme.isDark ? [theme.colors.surface, theme.colors.card] : ['#FFFFFF', '#F8F9FA'])
           }
           style={styles.taskGradient}
         >
@@ -878,14 +938,16 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
             <View style={[
               styles.statusIndicator,
               { backgroundColor: item.analysis ? getPriorityColor(item.analysis.priority) : 
-                (item.status === t('tasks.completed') ? theme.colors.success : theme.colors.warning) }
+                // ИСПРАВЛЕНО: используем оригинальный русский статус
+                (item.status === 'выполнено' ? theme.colors.success : theme.colors.warning) }
             ]} />
             
             <View style={styles.taskContent}>
               <View style={styles.taskHeader}>
                 <Text style={[
                   styles.taskTitle,
-                  item.status === t('tasks.completed') && styles.taskTitleCompleted
+                  // ИСПРАВЛЕНО: используем оригинальный русский статус для зачеркивания
+                  item.status === 'выполнено' && styles.taskTitleCompleted
                 ]}>
                   {item.title}
                 </Text>
@@ -903,7 +965,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                 )}
               </View>
               
-              {/* Обновленное отображение тегов с переводом */}
+              {/* Теги */}
               {item.tags && item.tags.length > 0 && (
                 <View style={styles.taskTags}>
                   {item.tags.slice(0, 3).map((tag) => {
@@ -938,7 +1000,7 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
                   <Text style={styles.aiAnalysisText}>
                     🤖 {item.analysis.category} • ~{item.analysis.estimatedDuration}{t('common.minutes')} • 
                     {item.analysis.sentiment.sentiment === 'positive' ? ` ${t('ai.analytics.positive')}` : 
-                     item.analysis.sentiment.sentiment === 'negative' ? ` ${t('ai.analytics.difficult')}` : ` ${t('ai.analytics.neutral')}`} 
+                    item.analysis.sentiment.sentiment === 'negative' ? ` ${t('ai.analytics.difficult')}` : ` ${t('ai.analytics.neutral')}`} 
                     ({Math.round(item.analysis.sentiment.confidence * 100)}%)
                   </Text>
                 </View>
@@ -965,13 +1027,16 @@ export default function HomeScreen({ navigation }: ScreenProps<"Home">) {
             {/* Статус бейдж */}
             <View style={[
               styles.statusBadge,
-              item.status === t('tasks.completed') ? styles.statusBadgeCompleted : styles.statusBadgeProgress
+              // ИСПРАВЛЕНО: используем оригинальный русский статус
+              item.status === 'выполнено' ? styles.statusBadgeCompleted : styles.statusBadgeProgress
             ]}>
               <Text style={[
                 styles.statusText,
-                item.status === t('tasks.completed') && styles.statusTextCompleted
+                // ИСПРАВЛЕНО: используем оригинальный русский статус
+                item.status === 'выполнено' && styles.statusTextCompleted
               ]}>
-                {item.status === t('tasks.completed') ? t('tasks.done') : t('tasks.inWork')}
+                {/* Показываем переведенный текст для пользователя */}
+                {item.status === 'выполнено' ? t('tasks.done') : t('tasks.inWork')}
               </Text>
             </View>
             

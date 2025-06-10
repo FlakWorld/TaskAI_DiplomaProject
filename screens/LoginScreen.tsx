@@ -83,7 +83,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       console.log('Google user info:', userInfo);
 
-      const response = await fetch('http://192.168.1.11:5000/auth/google', {
+      const response = await fetch('http://10.201.1.19:5000/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken: userInfo.idToken }),

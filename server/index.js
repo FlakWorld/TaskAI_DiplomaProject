@@ -13,6 +13,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// КОНСТАНТЫ ДЛЯ СТАТУСОВ ЗАДАЧ
+const TASK_STATUSES = {
+  IN_PROGRESS: "в прогрессе",
+  COMPLETED: "выполнено"
+};
+
+// Валидация статуса
+const isValidStatus = (status) => {
+  return Object.values(TASK_STATUSES).includes(status);
+};
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.mail.ru',
@@ -70,6 +80,7 @@ UserSchema.index({ email: 1 }, {
   collation: { locale: 'en', strength: 2 } 
 });
 
+// ОБНОВЛЕННАЯ СХЕМА ЗАДАЧ с четкими статусами
 const TaskSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -79,19 +90,21 @@ const TaskSchema = new mongoose.Schema({
   time: String,
   status: {
     type: String,
-    enum: ["выполнено", "в прогрессе"],
-    default: "в прогрессе"
+    enum: [TASK_STATUSES.COMPLETED, TASK_STATUSES.IN_PROGRESS], // Используем константы
+    default: TASK_STATUSES.IN_PROGRESS // Используем константу
   },
   tags: [{
     type: String,
-    trim: true,
-    lowercase: true
-  }], // Новое поле для тегов
+    trim: true
+    // Убрал lowercase чтобы сохранить ключи категорий как есть
+  }],
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   }
+}, {
+  timestamps: true // Добавляем автоматические метки времени
 });
 
 const User = mongoose.model("User", UserSchema);
@@ -510,32 +523,58 @@ app.post('/auth/microsoft', async (req, res) => {
   }
 });
 
-// Все остальные эндпоинты остаются без изменений...
+// ИСПРАВЛЕННЫЙ ЭНДПОИНТ СОЗДАНИЯ ЗАДАЧ
 app.post("/tasks", authenticate, async (req, res) => {
   try {
     const { title, date, time, status, tags } = req.body;
+    
+    console.log('📝 Creating task:', { title, date, time, status, tags });
+    
+    // Валидация обязательных полей
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: "Название задачи обязательно" });
+    }
+
+    // Проверяем статус если он передан
+    const taskStatus = status || TASK_STATUSES.IN_PROGRESS;
+    if (!isValidStatus(taskStatus)) {
+      console.error('❌ Invalid status received:', status);
+      return res.status(400).json({ 
+        error: "Некорректный статус задачи",
+        receivedStatus: status,
+        allowedStatuses: Object.values(TASK_STATUSES)
+      });
+    }
+
     const task = new Task({
-      title,
-      date,
-      time,
-      status: status || "в прогрессе",
-      tags: tags || [], // Добавляем теги
+      title: title.trim(),
+      date: date || null,
+      time: time || null,
+      status: taskStatus, // Используем проверенный статус
+      tags: Array.isArray(tags) ? tags : [], // Убеждаемся что tags это массив
       userId: req.user.userId
     });
 
     await task.save();
+    console.log('✅ Task created successfully:', task._id);
+    
     res.status(201).json(task);
   } catch (error) {
-    console.error("Create task error:", error);
-    res.status(500).json({ error: "Ошибка создания задачи" });
+    console.error("❌ Create task error:", error);
+    res.status(500).json({ 
+      error: "Ошибка создания задачи",
+      details: error.message 
+    });
   }
 });
 
 app.get("/tasks", authenticate, async (req, res) => {
   try {
-    const tasks = await Task.find({ userId: req.user.userId });
+    const tasks = await Task.find({ userId: req.user.userId }).sort({ createdAt: -1 });
+    console.log(`📋 Retrieved ${tasks.length} tasks for user ${req.user.userId}`);
     res.json(tasks);
   } catch (error) {
+    console.error("❌ Get tasks error:", error);
     res.status(500).json({ error: "Ошибка получения задач" });
   }
 });
@@ -550,30 +589,39 @@ app.get("/tasks/:id", authenticate, async (req, res) => {
     if (!task) return res.status(404).json({ error: "Задача не найдена" });
     res.json(task);
   } catch (error) {
+    console.error("❌ Get task error:", error);
     res.status(500).json({ error: "Ошибка получения задачи" });
   }
 });
 
+// ИСПРАВЛЕННЫЙ ЭНДПОИНТ ОБНОВЛЕНИЯ ЗАДАЧ
 app.put("/tasks/:id", authenticate, async (req, res) => {
   try {
     const { title, date, time, status, tags } = req.body;
     
-    if (!title && !status && !tags) {
+    console.log('📝 Updating task:', req.params.id, { title, date, time, status, tags });
+    
+    if (!title && !status && !tags && date === undefined && time === undefined) {
       return res.status(400).json({ error: "Необходимо указать данные для обновления" });
     }
 
     const updates = {};
     
-    if (title) updates.title = title;
+    if (title) updates.title = title.trim();
     if (date !== undefined) updates.date = date || null;
     if (time !== undefined) updates.time = time || null;
     if (status) {
-      if (!["выполнено", "в прогрессе"].includes(status)) {
-        return res.status(400).json({ error: "Некорректный статус задачи" });
+      if (!isValidStatus(status)) {
+        console.error('❌ Invalid status in update:', status);
+        return res.status(400).json({ 
+          error: "Некорректный статус задачи",
+          receivedStatus: status,
+          allowedStatuses: Object.values(TASK_STATUSES)
+        });
       }
       updates.status = status;
     }
-    if (tags !== undefined) updates.tags = tags; // Добавляем обновление тегов
+    if (tags !== undefined) updates.tags = Array.isArray(tags) ? tags : [];
 
     const task = await Task.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.userId },
@@ -585,10 +633,14 @@ app.put("/tasks/:id", authenticate, async (req, res) => {
       return res.status(404).json({ error: "Задача не найдена" });
     }
 
+    console.log('✅ Task updated successfully:', task._id);
     res.json(task);
   } catch (error) {
-    console.error("Update task error:", error);
-    res.status(500).json({ error: "Ошибка обновления задачи" });
+    console.error("❌ Update task error:", error);
+    res.status(500).json({ 
+      error: "Ошибка обновления задачи",
+      details: error.message 
+    });
   }
 });
 
@@ -600,8 +652,11 @@ app.delete("/tasks/:id", authenticate, async (req, res) => {
     });
     
     if (!task) return res.status(404).json({ error: "Задача не найдена" });
+    
+    console.log('🗑️ Task deleted successfully:', req.params.id);
     res.json({ message: "Задача удалена" });
   } catch (error) {
+    console.error("❌ Delete task error:", error);
     res.status(500).json({ error: "Ошибка удаления" });
   }
 });
@@ -663,4 +718,5 @@ app.get("/user/profile", authenticate, async (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📊 Valid task statuses: ${Object.values(TASK_STATUSES).join(', ')}`);
 });
